@@ -1,0 +1,119 @@
+services:
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: trafficsms-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: trafficsms
+      POSTGRES_USER: trafficsms
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - trafficsms_postgres:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trafficsms -d trafficsms"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - trafficsms-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: trafficsms-redis
+
+    restart: unless-stopped
+
+    command: redis-server --appendonly yes
+
+    volumes:
+      - trafficsms_redis:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+    networks:
+      - trafficsms-network
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: trafficsms-api
+
+    restart: unless-stopped
+
+    env_file:
+      - ./backend/.env
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+    expose:
+      - "8000"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8000/health'); sys.exit(0 if r.status==200 else 1)"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    networks:
+      - trafficsms-network
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: trafficsms-web
+
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.trafficsms.com
+
+    depends_on:
+      api:
+        condition: service_started
+
+    expose:
+      - "3000"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    networks:
+      - trafficsms-network
+
+volumes:
+  trafficsms_postgres:
+  trafficsms_redis:
+
+networks:
+  trafficsms-network:
+    driver: bridge

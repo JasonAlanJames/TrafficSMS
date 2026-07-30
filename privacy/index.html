@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy | TrafficSMS</title>
+  <meta name="description" content="Read the TrafficSMS Privacy Policy to learn how we collect, use, protect, and store your information across our SMS traffic alerts and web application.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://trafficsms.com/privacy">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232563EB'/%3E%3Cpath d='M16 22h32v6H35v22h-6V28H16z' fill='white'/%3E%3C/svg%3E">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Privacy Policy | TrafficSMS">
+  <meta property="og:description" content="How TrafficSMS collects, uses, protects, and stores your information.">
+  <meta property="og:url" content="https://trafficsms.com/privacy">
+  <meta property="og:site_name" content="TrafficSMS">
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --surface-alt: #eef4ff;
+      --ink: #1f2937;
+      --muted: #5b6b82;
+      --line: #d7e3f4;
+      --brand: #2563eb;
+      --brand-deep: #163e96;
+      --accent: #f97316;
+      --accent-soft: #fff1e8;
+      --hero: #07111f;
+      --hero-ink: #edf6ff;
+      --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+      --radius: 20px;
+      --content: 76rem;
+      scroll-behavior: smooth;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 16px;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 28%),
+        linear-gradient(180deg, #f9fbff 0%, #f3f7fd 100%);
+      color: var(--ink);
+      line-height: 1.7;
+    }
+
+    a {
+      color: var(--brand);
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover,
+    a:focus-visible {
+      color: var(--brand-deep);
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(249, 115, 22, 0.35);
+      outline-offset: 3px;
+      border-radius: 8px;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: 1rem;
+      top: -3rem;
+      z-index: 1000;
+      background: var(--accent);
+      color: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      text-decoration: none;
+    }
+
+    .skip-link:focus {
+      top: 1rem;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(215, 227, 244, 0.7);
+      backdrop-filter: blur(18px);
+      background: rgba(248, 251, 255, 0.88);
+    }
+
+    .nav-wrap,
+    .hero-inner,
+    .main-wrap,
+    .footer-wrap {
+      width: min(calc(100% - 2rem), var(--content));
+      margin: 0 auto;
+    }
+
+    .nav-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 4.5rem;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.85rem;
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.9rem;
+      background: linear-gradient(135deg, var(--brand), #5aa2ff);
+      color: #fff;
+      font-size: 1rem;
+      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.3);
+    }
+
+    .top-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.9rem 1.2rem;
+      font-size: 0.95rem;
+    }
+
+    .top-links a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .top-links a[aria-current="page"] {
+      color: var(--brand);
+      font-weight: 700;
+    }
+
+    .hero {
+      padding: 4.5rem 0 3rem;
+    }
+
+    .hero-panel {
+      padding: 2rem;
+      border-radius: 1.75rem;
+      background:
+        radial-gradient(circle at top right, rgba(66, 211, 146, 0.16), transparent 25%),
+        linear-gradient(135deg, #081223 0%, #0f2340 52%, #163e96 100%);
+      color: var(--hero-ink);
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.45rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(237, 246, 255, 0.1);
+      color: #c9defd;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin-top: 1rem;
+      font-size: clamp(2.4rem, 8vw, 4.5rem);
+      max-width: 12ch;
+    }
+
+    .hero-panel p {
+      margin: 1rem 0 0;
+      max-width: 46rem;
+      color: #d6e6fb;
+      font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+    }
+
+    .hero-meta {
+      margin-top: 1.5rem;
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      color: #d8e4f9;
+      font-weight: 600;
+    }
+
+    .meta-chip {
+      padding: 0.65rem 0.9rem;
+      border-radius: 0.9rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    main {
+      padding-bottom: 4rem;
+    }
+
+    .layout {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .toc-card {
+      padding: 1.5rem;
+    }
+
+    .toc-card h2 {
+      font-size: 1.35rem;
+      margin-bottom: 1rem;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+      gap: 0.75rem;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .toc-grid a {
+      display: block;
+      height: 100%;
+      padding: 0.9rem 1rem;
+      border-radius: 1rem;
+      text-decoration: none;
+      color: var(--ink);
+      background: linear-gradient(180deg, #ffffff, #f7faff);
+      border: 1px solid var(--line);
+      font-weight: 600;
+    }
+
+    .toc-grid a:hover,
+    .toc-grid a:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(37, 99, 235, 0.28);
+      box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+    }
+
+    .policy-section {
+      padding: 1.6rem;
+      scroll-margin-top: 6rem;
+    }
+
+    .policy-section + .policy-section {
+      margin-top: 1.25rem;
+    }
+
+    .section-kicker {
+      display: inline-block;
+      margin-bottom: 0.8rem;
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    h2 {
+      font-size: clamp(1.5rem, 4vw, 2.15rem);
+      margin-bottom: 0.9rem;
+    }
+
+    h3 {
+      font-size: 1.08rem;
+      margin: 1.25rem 0 0.5rem;
+    }
+
+    p,
+    li,
+    td,
+    th {
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0.75rem 0 0;
+      color: var(--ink);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .info-grid {
+      display: grid;
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+
+    .mini-card {
+      padding: 1rem;
+      border-radius: 1rem;
+      background: var(--surface-alt);
+      border: 1px solid #dbe7fb;
+    }
+
+    ul {
+      margin: 0.85rem 0 0;
+      padding-left: 1.25rem;
+    }
+
+    li + li {
+      margin-top: 0.45rem;
+    }
+
+    .detail-list {
+      list-style: none;
+      padding: 0;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .detail-list li {
+      margin: 0;
+      padding: 0.95rem 1rem;
+      border-radius: 1rem;
+      border: 1px solid var(--line);
+      background: #fbfdff;
+    }
+
+    .detail-list strong {
+      display: block;
+      margin-bottom: 0.2rem;
+      color: var(--brand-deep);
+    }
+
+    table {
+      width: 100%;
+      margin-top: 1rem;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 1rem;
+      border: 1px solid var(--line);
+    }
+
+    thead {
+      background: #edf4ff;
+    }
+
+    th,
+    td {
+      padding: 0.95rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+    }
+
+    tbody tr:nth-child(even) {
+      background: #fbfdff;
+    }
+
+    .callout {
+      margin-top: 1rem;
+      padding: 1rem 1.1rem;
+      border-radius: 1rem;
+      background: var(--accent-soft);
+      border: 1px solid #ffd8bc;
+      color: #7b341e;
+    }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .footer-wrap {
+      padding: 1.5rem 0 2.5rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem 1.2rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .footer-links a {
+      text-decoration: none;
+      color: var(--muted);
+    }
+
+    @media (min-width: 720px) {
+      .hero {
+        padding-top: 5.5rem;
+      }
+
+      .hero-panel,
+      .toc-card,
+      .policy-section {
+        padding: 2rem;
+      }
+
+      .info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media print {
+      :root {
+        --bg: #fff;
+        --surface: #fff;
+        --surface-alt: #fff;
+      }
+
+      body {
+        background: #fff;
+        color: #000;
+      }
+
+      .site-header,
+      .footer,
+      .skip-link {
+        display: none;
+      }
+
+      .hero {
+        padding: 0 0 1rem;
+      }
+
+      .hero-panel,
+      .card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+      }
+
+      a {
+        color: #000;
+        text-decoration: underline;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="site-header">
+    <nav class="nav-wrap" aria-label="Primary">
+      <a class="brand" href="https://trafficsms.com">
+        <span class="brand-mark" aria-hidden="true">T</span>
+        <span>TrafficSMS</span>
+      </a>
+      <div class="top-links">
+        <a href="https://trafficsms.com">Home</a>
+        <a href="https://trafficsms.com/features">Features</a>
+        <a href="https://trafficsms.com/pricing">Pricing</a>
+        <a href="https://trafficsms.com/privacy" aria-current="page">Privacy Policy</a>
+        <a href="https://trafficsms.com/terms">Terms of Service</a>
+        <a href="mailto:support@trafficsms.com">Contact</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-panel">
+          <span class="eyebrow">Privacy and Data Practices</span>
+          <h1>Privacy Policy</h1>
+          <p>How TrafficSMS collects, uses, protects, and stores your information.</p>
+          <div class="hero-meta">
+            <span class="meta-chip">Last Updated: July 29, 2026</span>
+            <span class="meta-chip">Traffic alerts by SMS and web app</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="main-wrap">
+      <div class="layout">
+        <section class="card toc-card" id="table-of-contents" aria-labelledby="toc-title">
+          <h2 id="toc-title">Table of Contents</h2>
+          <ol class="toc-grid">
+            <li><a href="#information-we-collect">Information We Collect</a></li>
+            <li><a href="#account-registration">Account Registration</a></li>
+            <li><a href="#google-firebase-authentication">Google/Firebase Authentication</a></li>
+            <li><a href="#stripe-payment-processing">Stripe Payment Processing</a></li>
+            <li><a href="#twilio-sms-messaging">Twilio SMS Messaging</a></li>
+            <li><a href="#traffic-request-history">Traffic Request History</a></li>
+            <li><a href="#saved-routes">Saved Routes</a></li>
+            <li><a href="#location-information">Location Information</a></li>
+            <li><a href="#cookies">Cookies</a></li>
+            <li><a href="#analytics">Analytics</a></li>
+            <li><a href="#artificial-intelligence">Artificial Intelligence</a></li>
+            <li><a href="#third-party-providers">Third-Party Providers</a></li>
+            <li><a href="#data-retention">Data Retention</a></li>
+            <li><a href="#california-privacy-rights">California Privacy Rights</a></li>
+            <li><a href="#childrens-privacy">Children's Privacy</a></li>
+            <li><a href="#security">Security</a></li>
+            <li><a href="#your-choices">Your Choices</a></li>
+            <li><a href="#contact-information">Contact Information</a></li>
+            <li><a href="#changes-to-this-policy">Changes to this Policy</a></li>
+          </ol>
+        </section>
+
+        <section class="card policy-section" id="information-we-collect">
+          <span class="section-kicker">1</span>
+          <h2>Information We Collect</h2>
+          <p>We collect information you provide directly, information created through your use of TrafficSMS, and limited technical information needed to secure and improve the service.</p>
+          <div class="info-grid">
+            <div class="mini-card"><strong>Identity and contact data</strong><p class="muted">This includes your name, email address, phone number, and billing address when you create an account or subscribe.</p></div>
+            <div class="mini-card"><strong>Technical and device data</strong><p class="muted">We may collect IP address, browser type, device information, login history, and related diagnostic data to operate the platform safely.</p></div>
+            <div class="mini-card"><strong>Service activity data</strong><p class="muted">We store traffic requests, saved routes, subscription information, and account preferences so we can deliver personalized traffic updates.</p></div>
+            <div class="mini-card"><strong>Security and support data</strong><p class="muted">When you contact support or interact with security systems, we may create logs and internal notes necessary to protect the service and respond to issues.</p></div>
+          </div>
+        </section>
+
+        <section class="card policy-section" id="account-registration">
+          <span class="section-kicker">2</span>
+          <h2>Account Registration</h2>
+          <p>You can create a TrafficSMS account using an email and password or by choosing Google Sign In when available. During registration, we use the information you provide to establish your profile, enable account access, and connect your subscription and message preferences.</p>
+          <p>TrafficSMS uses Firebase Authentication to support account creation, identity verification, and secure sign-in flows. We only request information that is reasonably necessary to provide the service, manage your subscription, and communicate with you about your account.</p>
+        </section>
+
+        <section class="card policy-section" id="google-firebase-authentication">
+          <span class="section-kicker">3</span>
+          <h2>Google/Firebase Authentication</h2>
+          <p>If you choose Google Sign In, Google provides authentication information that helps us verify your identity without requiring a separate password. Firebase Authentication manages authentication workflows, issues security tokens, and maintains authentication sessions used to keep you signed in securely.</p>
+          <ul>
+            <li>Google Sign In can provide basic account identity details such as your name and email address.</li>
+            <li>Firebase Authentication helps us validate credentials, rotate security tokens, and manage active sessions.</li>
+            <li>We use session and token data to prevent unauthorized access and to protect account integrity across devices.</li>
+          </ul>
+        </section>
+
+        <section class="card policy-section" id="stripe-payment-processing">
+          <span class="section-kicker">4</span>
+          <h2>Stripe Payment Processing</h2>
+          <p>TrafficSMS never stores your full payment card details on our own systems. Stripe securely processes subscription payments, invoices, billing events, and saved payment methods on our behalf.</p>
+          <p>We may store limited billing metadata such as subscription status, invoice references, customer identifiers, and payment state so we can manage your service. For more information about how Stripe handles personal data, review the <a href="https://stripe.com/privacy" rel="noopener noreferrer">Stripe Privacy Policy</a>.</p>
+        </section>
+
+        <section class="card policy-section" id="twilio-sms-messaging">
+          <span class="section-kicker">5</span>
+          <h2>Twilio SMS Messaging</h2>
+          <p>TrafficSMS uses Twilio to send and receive SMS messages. This includes incoming SMS commands, outgoing traffic responses, message logs, delivery status updates, and subscription-control keywords such as STOP, HELP, and START.</p>
+          <ul class="detail-list">
+            <li><strong>Opt-In and messaging setup</strong>We process your phone number and consent status to confirm opt-in before sending recurring subscription messages.</li>
+            <li><strong>Opt-Out handling</strong>If you send STOP, we record that preference and stop non-essential SMS traffic to that number unless you later send START or otherwise re-subscribe.</li>
+            <li><strong>Support keywords</strong>HELP requests may trigger automated guidance or support information so you can understand how to use the service.</li>
+            <li><strong>Carrier considerations</strong>Standard carrier messaging and data fees may apply depending on your wireless provider and plan.</li>
+          </ul>
+        </section>
+
+        <section class="card policy-section" id="traffic-request-history">
+          <span class="section-kicker">6</span>
+          <h2>Traffic Request History</h2>
+          <p>To help you revisit useful information and improve service continuity, we may store traffic searches, recent lookups, traffic summaries, and favorite locations linked to your account. This history supports features such as faster repeat searches, personalized routing context, and continuity between SMS and web experiences.</p>
+        </section>
+
+        <section class="card policy-section" id="saved-routes">
+          <span class="section-kicker">7</span>
+          <h2>Saved Routes</h2>
+          <p>TrafficSMS allows you to store route-related information such as Home, Work, custom routes, and alerts. We use this information to help generate faster traffic responses, maintain route preferences, and deliver relevant updates when those features are enabled.</p>
+          <p>You control what route information you save, update, or remove from your account. Removing a route may affect related personalization and alert functionality.</p>
+        </section>
+
+        <section class="card policy-section" id="location-information">
+          <span class="section-kicker">8</span>
+          <h2>Location Information</h2>
+          <p>TrafficSMS may use approximate location data, ZIP Code, city, state, or manual location entry to return relevant traffic information. We may also use Google Maps geocoding services to translate addresses, place names, or route descriptions into map coordinates and traffic queries.</p>
+          <div class="callout">TrafficSMS may support GPS-based features in the future. If introduced, those features will be governed by the permissions you grant on your device and the disclosures shown in the product at that time.</div>
+        </section>
+
+        <section class="card policy-section" id="cookies">
+          <span class="section-kicker">9</span>
+          <h2>Cookies</h2>
+          <p>We use cookies and similar technologies to keep TrafficSMS secure and usable.</p>
+          <ul>
+            <li>Authentication cookies help recognize signed-in users.</li>
+            <li>Session cookies support secure navigation and temporary state while you use the service.</li>
+            <li>Security cookies help detect abuse, protect sign-in flows, and reduce fraud risk.</li>
+            <li>Preference cookies remember settings such as saved choices and interface preferences.</li>
+          </ul>
+        </section>
+
+        <section class="card policy-section" id="analytics">
+          <span class="section-kicker">10</span>
+          <h2>Analytics</h2>
+          <p>We may use Google Analytics and related measurement tools to understand site performance, monitor feature usage, and evaluate anonymous usage statistics. Analytics data helps us improve speed, reliability, conversion flows, and the overall user experience.</p>
+          <p>Where practical, we rely on aggregated or de-identified information to understand trends rather than to identify individual users directly.</p>
+        </section>
+
+        <section class="card policy-section" id="artificial-intelligence">
+          <span class="section-kicker">11</span>
+          <h2>Artificial Intelligence</h2>
+          <p>TrafficSMS may use Amazon Bedrock to support natural language processing, traffic summaries, prompt processing, and question answering features. These systems help us interpret user requests and return useful traffic-related responses through the web app or SMS workflows.</p>
+          <p>TrafficSMS does not use customer data to train foundation models unless we explicitly disclose that practice and provide any required notice or choice.</p>
+        </section>
+
+        <section class="card policy-section" id="third-party-providers">
+          <span class="section-kicker">12</span>
+          <h2>Third-Party Providers</h2>
+          <p>We work with service providers that help us deliver infrastructure, payments, communications, mapping, analytics, and AI-assisted features.</p>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Provider</th>
+                <th scope="col">Purpose</th>
+                <th scope="col">Website</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Stripe</td><td>Subscription payments, invoices, billing, and payment methods</td><td><a href="https://stripe.com" rel="noopener noreferrer">stripe.com</a></td></tr>
+              <tr><td>Twilio</td><td>Incoming and outgoing SMS delivery, messaging logs, and status events</td><td><a href="https://www.twilio.com" rel="noopener noreferrer">twilio.com</a></td></tr>
+              <tr><td>Firebase</td><td>Authentication, account sign-in, token handling, and session support</td><td><a href="https://firebase.google.com" rel="noopener noreferrer">firebase.google.com</a></td></tr>
+              <tr><td>Google Maps</td><td>Geocoding, place lookups, and location-related traffic query support</td><td><a href="https://maps.google.com" rel="noopener noreferrer">maps.google.com</a></td></tr>
+              <tr><td>Amazon Web Services</td><td>Cloud hosting, storage, networking, and backend infrastructure</td><td><a href="https://aws.amazon.com" rel="noopener noreferrer">aws.amazon.com</a></td></tr>
+              <tr><td>Amazon Bedrock</td><td>Natural language processing and AI-assisted traffic response features</td><td><a href="https://aws.amazon.com/bedrock/" rel="noopener noreferrer">aws.amazon.com/bedrock</a></td></tr>
+              <tr><td>Cloudflare (future)</td><td>Potential CDN, edge security, caching, and performance optimization services</td><td><a href="https://www.cloudflare.com" rel="noopener noreferrer">cloudflare.com</a></td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card policy-section" id="data-retention">
+          <span class="section-kicker">13</span>
+          <h2>Data Retention</h2>
+          <p>We retain personal information for as long as reasonably necessary to provide TrafficSMS, comply with legal obligations, resolve disputes, enforce agreements, and protect the service.</p>
+          <ul class="detail-list">
+            <li><strong>Accounts</strong>Account information may be retained while your profile remains active and for a reasonable period after closure for legal, security, and operational purposes.</li>
+            <li><strong>Subscriptions</strong>Billing and subscription records may be retained as needed for financial reporting, fraud prevention, charge management, and tax compliance.</li>
+            <li><strong>Traffic history and logs</strong>Traffic history, diagnostic logs, and related service records may be retained according to operational needs, security review cycles, and backup practices.</li>
+            <li><strong>Deleted accounts</strong>When you delete an account, we will work to remove or de-identify information, subject to retention needs for legal compliance, abuse prevention, and legitimate business records.</li>
+          </ul>
+        </section>
+
+        <section class="card policy-section" id="california-privacy-rights">
+          <span class="section-kicker">14</span>
+          <h2>California Privacy Rights</h2>
+          <p>If you are a California resident, you may have rights under the California Consumer Privacy Act (CCPA) and the California Privacy Rights Act (CPRA), subject to applicable exceptions.</p>
+          <ul>
+            <li>Right to Know what categories of personal information we collect, use, disclose, and retain.</li>
+            <li>Right to Access certain personal information we hold about you.</li>
+            <li>Right to Correct inaccurate personal information.</li>
+            <li>Right to Delete personal information, subject to lawful exceptions.</li>
+            <li>Right to Non-Discrimination for exercising your privacy rights.</li>
+          </ul>
+          <p>To exercise these rights, contact us using the information in the Contact Information section below. We may need to verify your identity before fulfilling certain requests.</p>
+        </section>
+
+        <section class="card policy-section" id="childrens-privacy">
+          <span class="section-kicker">15</span>
+          <h2>Children's Privacy</h2>
+          <p>TrafficSMS is not intended for children under 13, and we do not knowingly collect personal information directly from children under 13. If you believe a child has provided personal information to TrafficSMS, please contact us so we can investigate and take appropriate action.</p>
+        </section>
+
+        <section class="card policy-section" id="security">
+          <span class="section-kicker">16</span>
+          <h2>Security</h2>
+          <p>We use administrative, technical, and organizational safeguards designed to protect personal information against unauthorized access, loss, misuse, or alteration.</p>
+          <div class="info-grid">
+            <div class="mini-card"><strong>Encryption and HTTPS</strong><p class="muted">We use encrypted connections, including HTTPS, to protect data in transit where supported.</p></div>
+            <div class="mini-card"><strong>Password hashing</strong><p class="muted">Passwords and credentials are protected using industry-standard authentication and hashing practices through our identity providers.</p></div>
+            <div class="mini-card"><strong>Access controls</strong><p class="muted">Internal access is limited to authorized personnel and service systems with a legitimate operational need.</p></div>
+            <div class="mini-card"><strong>Infrastructure security and monitoring</strong><p class="muted">We maintain logging, monitoring, and provider-level security controls to detect issues and respond to suspicious activity.</p></div>
+          </div>
+        </section>
+
+        <section class="card policy-section" id="your-choices">
+          <span class="section-kicker">17</span>
+          <h2>Your Choices</h2>
+          <p>You may have several choices regarding how you use TrafficSMS and how we communicate with you.</p>
+          <ul>
+            <li>Update profile information and saved preferences through your account when those features are available.</li>
+            <li>Request account deletion or data export by contacting support.</li>
+            <li>Send STOP to opt out of SMS marketing or subscription text messages, subject to service design and legal requirements.</li>
+            <li>Send HELP for service guidance and support information.</li>
+            <li>Unsubscribe from promotional communications using the instructions included in those messages where applicable.</li>
+          </ul>
+        </section>
+
+        <section class="card policy-section" id="contact-information">
+          <span class="section-kicker">18</span>
+          <h2>Contact Information</h2>
+          <p>If you have questions about this Privacy Policy or want to exercise your privacy rights, please contact us:</p>
+          <ul class="detail-list">
+            <li><strong>Company</strong>TrafficSMS</li>
+            <li><strong>Website</strong><a href="https://trafficsms.com">https://trafficsms.com</a></li>
+            <li><strong>Email</strong><a href="mailto:support@trafficsms.com">support@trafficsms.com</a></li>
+          </ul>
+        </section>
+
+        <section class="card policy-section" id="changes-to-this-policy">
+          <span class="section-kicker">19</span>
+          <h2>Changes to this Policy</h2>
+          <p>We may update this Privacy Policy from time to time to reflect changes to our services, legal requirements, security practices, or business operations. When we make updates, we will revise the Last Updated date at the top of this page. Your continued use of TrafficSMS after a revised policy becomes effective indicates your continued interaction with the service subject to the updated terms.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-wrap">
+      <nav class="footer-links" aria-label="Footer">
+        <a href="https://trafficsms.com">Home</a>
+        <a href="https://trafficsms.com/features">Features</a>
+        <a href="https://trafficsms.com/pricing">Pricing</a>
+        <a href="https://trafficsms.com/privacy" aria-current="page">Privacy Policy</a>
+        <a href="https://trafficsms.com/terms">Terms of Service</a>
+        <a href="mailto:support@trafficsms.com">Contact</a>
+      </nav>
+      <p class="muted">&copy; 2026 TrafficSMS. All Rights Reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>
