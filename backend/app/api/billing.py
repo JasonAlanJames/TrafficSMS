@@ -65,3 +65,39 @@ def create_checkout(body: CheckoutRequest):
             detail=f"Stripe error: {str(exc)}",
         )
 
+@router.get("/pricing")
+def get_pricing():
+    settings = get_settings()
+
+    stripe.api_key = settings.stripe_secret_key
+
+    try:
+        products = [
+            settings.stripe_standard_monthly_product_id,
+            settings.stripe_unlimited_monthly_product_id,
+        ]
+
+        pricing = []
+
+        for product_id in products:
+            product = stripe.Product.retrieve(product_id)
+
+            price = stripe.Price.retrieve(product.default_price)
+
+            pricing.append({
+                "id": product.id,
+                "name": product.name,
+                "description": product.description,
+                "price": price.unit_amount / 100,
+                "currency": price.currency,
+                "interval": price.recurring.interval,
+                "price_id": price.id,
+            })
+
+        return pricing
+
+    except stripe.error.StripeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Stripe error: {str(exc)}",
+        )

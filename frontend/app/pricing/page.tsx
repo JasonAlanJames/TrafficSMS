@@ -1,15 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
+type PlanPricing = {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    currency: string;
+    interval: string;
+    price_id: string;
+};
 
 export default function Pricing() {
     const [email, setEmail] = useState('');
     const [busy, setBusy] = useState(false);
 
+    const [pricing, setPricing] = useState<PlanPricing[]>([]);
+
+    useEffect(() => {
+    async function loadPricing() {
+        try {
+            const response = await fetch(`${API}/billing/pricing`);
+
+            if (!response.ok) {
+                throw new Error("Unable to load pricing.");
+            }
+
+            const data: PlanPricing[] = await response.json();
+            setPricing(data);
+        } catch (err) {
+            console.error("Failed to load pricing:", err);
+        }
+    }
+
+    loadPricing();
+}, []);
+
+const standard =
+    pricing.find((p) => p.name.includes("Standard"));
+
+const unlimited =
+    pricing.find((p) => p.name.includes("Unlimited"));
+
     async function buy(plan: 'standard' | 'unlimited') {
-        setBusy(true);
+        setBusy(true);	
 
         try {
             const response = await fetch(`${API}/billing/checkout`, {
@@ -45,10 +82,12 @@ export default function Pricing() {
                 <div className="card">
                     <h2>Standard</h2>
 
-                    <div className="price">$4.99</div>
+                    <div className="price">
+                        {standard ? `$${standard.price.toFixed(2)}` : "..."}
+                    </div>
 
                     <p className="muted">
-                        per month
+                        {standard ? `per ${standard.interval}` : "Loading..."}
                     </p>
 
                     <ul className="muted">
@@ -80,10 +119,12 @@ export default function Pricing() {
                 <div className="card">
                     <h2>Unlimited</h2>
 
-                    <div className="price">$9.99</div>
+                    <div className="price">
+                         {unlimited ? `$${unlimited.price.toFixed(2)}` : "..."}
+                    </div>
 
                     <p className="muted">
-                        per month
+                         {unlimited ? `per ${unlimited.interval}` : "Loading..."}
                     </p>
 
                     <ul className="muted">
