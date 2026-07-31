@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, Re
 from sqlalchemy.orm import Session
 from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
+from twilio.twiml.voice_response import VoiceResponse
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.services.commands import process_sms
@@ -28,3 +29,28 @@ async def inbound_sms(
     reply = await process_sms(db, From, Body)
     twiml = MessagingResponse(); twiml.message(reply)
     return Response(content=str(twiml), media_type="application/xml")
+
+@router.post("/voice")
+async def voice_call():
+    """
+    Handle inbound voice calls to the TrafficSMS toll-free number.
+    """
+
+    response = VoiceResponse()
+
+    response.say(
+        (
+            "Thank you for calling Traffic SMS. "
+            "This service accepts text messages only. "
+            "Please send your traffic request by SMS to this number. "
+            "Goodbye."
+        ),
+        voice="alice",
+    )
+
+    response.hangup()
+
+    return Response(
+        content=str(response),
+        media_type="application/xml",
+    )
