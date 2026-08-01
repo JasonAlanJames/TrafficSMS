@@ -57,8 +57,13 @@ class LocationResolver:
         #
         if user and text.upper() == "HOME" and user.home_location:
 
+            print("=" * 80)
+            print(f"Original query : {query!r}")
+            print(f"Candidate sent : {candidate!r}")
+            print("=" * 80)
+
             geo = await google_maps.geocode(
-                user.home_location,
+                candidate,
             )
 
             return ResolvedLocation(
