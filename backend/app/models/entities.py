@@ -34,8 +34,38 @@ class User(Base):
         index=True,
     )
 
-    home_area: Mapped[str | None] = mapped_column(
-        String(120)
+    #
+    # Saved Locations
+    #
+
+    home_location: Mapped[str | None] = mapped_column(
+        String(255)
+    )
+
+    work_location: Mapped[str | None] = mapped_column(
+        String(255)
+    )
+
+    gym_location: Mapped[str | None] = mapped_column(
+        String(255)
+    )
+
+    school_location: Mapped[str | None] = mapped_column(
+        String(255)
+    )
+
+    #
+    # Default Location
+    #
+
+    default_state: Mapped[str | None] = mapped_column(
+        String(2),
+        nullable=True,
+    )
+
+    default_country: Mapped[str] = mapped_column(
+        String(2),
+        default="US",
     )
 
     #

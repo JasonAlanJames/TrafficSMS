@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.entities import User, CommunityReport, ReportVote
 from app.services.traffic import build_traffic_reply
+from app.services.traffic_parser import parse_traffic_command
 
 POLICE_RE = re.compile(r"^POLICE(?:\s+(HIDDEN|OTHER SIDE|VISIBLE|MOBILE CAMERA))?(?:\s+(.+))?$", re.I)
 VOTE_RE = re.compile(r"^P(\d+)\s+(YES|NO|UNSURE)$", re.I)
@@ -80,24 +81,43 @@ async def process_sms(db: Session, from_number: str, body: str) -> str:
             return "Your response was already recorded."
         mapped = {"YES": "still", "NO": "cleared", "UNSURE": "unsure"}[vote_text]
         db.add(ReportVote(report_id=report_id, voter_key=voter_key, vote=mapped))
-        if mapped == "still": report.still_there_votes += 1
-        elif mapped == "cleared": report.cleared_votes += 1
-        else: report.unsure_votes += 1
-        if report.cleared_votes >= 3 and report.cleared_votes > report.still_there_votes:
+        if mapped == "still":
+            report.still_there_votes += 1
+        elif mapped == "cleared":
+            report.cleared_votes += 1
+        else:
+            report.unsure_votes += 1
+        if (
+            report.cleared_votes >= 3
+            and report.cleared_votes > report.still_there_votes
+        ):
             report.status = "likely_cleared"
+
         elif report.still_there_votes >= 2:
             report.status = "likely_present"
-            report.expires_at = max(report.expires_at, datetime.utcnow() + timedelta(minutes=20))
+            report.expires_at = max(
+                report.expires_at,
+                datetime.utcnow() + timedelta(minutes=20),
+            )
         db.commit()
-        return f"Thanks. Police report #{report_id} updated to {report.status.replace('_', ' ')}."
+        return (
+            f"Thanks. Police report #{report_id} "
+            f"updated to "
+            f"{report.status.replace('_', ' ')}."
+        )
 
     police_match = POLICE_RE.match(text)
     if police_match:
         subtype = (police_match.group(1) or "VISIBLE").upper().replace(" ", "_")
-        location = police_match.group(2) or user.home_area
+        location = police_match.group(2) or user.home_location
         if not location:
             return "Reply with a generalized road and area, for example: POLICE VISIBLE I-15 N NEAR MAGNOLIA. Do not report while driving."
-        type_map = {"VISIBLE": "police_visible", "HIDDEN": "police_hidden", "OTHER_SIDE": "police_other_side", "MOBILE_CAMERA": "mobile_camera"}
+        type_map = {
+            "VISIBLE": "police_visible",
+            "HIDDEN": "police_hidden",
+            "OTHER_SIDE": "police_other_side",
+            "MOBILE_CAMERA": "mobile_camera",
+        }
         report = CommunityReport(
             reporter_user_id=user.id,
             report_type=type_map[subtype],
@@ -108,14 +128,53 @@ async def process_sms(db: Session, from_number: str, body: str) -> str:
             expires_at=datetime.utcnow() + timedelta(minutes=35),
         )
         db.add(report)
-        db.commit(); db.refresh(report)
-        return f"Police peer report #{report.id} recorded for the generalized area: {location}. It expires automatically. Report only while parked or as a passenger."
+        db.commit()
+        db.refresh(report)
+
+        return (
+            f"Police peer report #{report.id} "
+            f"recorded for the generalized area: "
+            f"{location}. "
+            "It expires automatically. "
+            "Report only while parked or as a passenger."
+        )
 
     if message.startswith("TRAFFIC"):
-        parts = text.split(maxsplit=1)
-        area = parts[1] if len(parts) > 1 else (user.home_area or "your saved area")
+
+        traffic_request = parse_traffic_command(
+            text,
+            subscriber_id=user.id,
+        )
+
+        #
+        # Default commute support.
+        #
+        # If the subscriber simply texts:
+        #
+        #     TRAFFIC
+        #
+        # we'll eventually replace these with the user's
+        # saved Home and Work locations.
+        #
+
+        if traffic_request.mode == "commute":
+
+            if not user.home_location or not user.work_location:
+                return (
+                    "Please configure your Home and Work locations "
+                    "before using the TRAFFIC commute command."
+                )
+
+            traffic_request.origin = user.home_location
+            traffic_request.destination = user.work_location
+
         user.monthly_sms_count += 1
         db.commit()
-        return await build_traffic_reply(db, area)
+
+        return await build_traffic_reply(
+            db=db,
+            request=traffic_request,
+            user=user,
+        )
 
     return "Unknown command. Text HELP for supported commands."
