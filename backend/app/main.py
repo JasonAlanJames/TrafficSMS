@@ -1,10 +1,15 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 from app.api import billing, stripe_webhook, twilio_webhook
+from app.auth.router import router as auth_router
 from app.core.config import get_settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal
 from app.models.entities import User
 from app.services.google_maps import google_maps
 from app.services.traffic import build_traffic_reply
@@ -12,9 +17,17 @@ from app.services.traffic_parser import parse_traffic_command
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Database schema is managed by Alembic migrations.
+    yield
+
+
 app = FastAPI(
     title="TrafficSMS API",
-    version="0.1.0",
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -25,14 +38,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(twilio_webhook.router)
 app.include_router(stripe_webhook.router)
 app.include_router(billing.router)
-
-
-@app.on_event("startup")
-def startup():
-    Base.metadata.create_all(bind=engine)
 
 
 def get_test_user(db):
@@ -49,7 +58,11 @@ def get_test_user(db):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "environment": settings.app_env,
+        "service": "TrafficSMS API",
+    }
 
 
 @app.get("/test/geocode")
@@ -77,7 +90,6 @@ async def test_traffic(
     db = SessionLocal()
 
     try:
-
         user = get_test_user(db)
 
         return {
@@ -88,14 +100,12 @@ async def test_traffic(
                 user=user,
             ),
         }
-
     finally:
         db.close()
 
 
 @app.get("/test/traffic/area")
 async def test_area():
-
     request = parse_traffic_command(
         "TRAFFIC CORONA",
         subscriber_id=2,
@@ -104,7 +114,6 @@ async def test_area():
     db = SessionLocal()
 
     try:
-
         user = get_test_user(db)
 
         return {
@@ -115,14 +124,12 @@ async def test_area():
                 user=user,
             ),
         }
-
     finally:
         db.close()
 
 
 @app.get("/test/traffic/route")
 async def test_route():
-
     request = parse_traffic_command(
         "TRAFFIC CORONA TO ANAHEIM",
         subscriber_id=2,
@@ -131,7 +138,6 @@ async def test_route():
     db = SessionLocal()
 
     try:
-
         user = get_test_user(db)
 
         return {
@@ -142,14 +148,12 @@ async def test_route():
                 user=user,
             ),
         }
-
     finally:
         db.close()
 
 
 @app.get("/test/traffic/corridor")
 async def test_corridor():
-
     request = parse_traffic_command(
         "TRAFFIC 91 WEST",
         subscriber_id=2,
@@ -158,7 +162,6 @@ async def test_corridor():
     db = SessionLocal()
 
     try:
-
         user = get_test_user(db)
 
         return {
@@ -169,14 +172,12 @@ async def test_corridor():
                 user=user,
             ),
         }
-
     finally:
         db.close()
 
 
 @app.get("/test/traffic/commute")
 async def test_commute():
-
     request = parse_traffic_command(
         "TRAFFIC",
         subscriber_id=2,
@@ -188,7 +189,6 @@ async def test_commute():
     db = SessionLocal()
 
     try:
-
         user = get_test_user(db)
 
         return {
@@ -199,6 +199,5 @@ async def test_commute():
                 user=user,
             ),
         }
-
     finally:
         db.close()

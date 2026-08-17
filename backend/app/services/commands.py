@@ -8,6 +8,7 @@ from app.services.traffic_parser import parse_traffic_command
 
 POLICE_RE = re.compile(r"^POLICE(?:\s+(HIDDEN|OTHER SIDE|VISIBLE|MOBILE CAMERA))?(?:\s+(.+))?$", re.I)
 VOTE_RE = re.compile(r"^P(\d+)\s+(YES|NO|UNSURE)$", re.I)
+REGISTRATION_URL = "https://trafficsms.com/sms-opt-in"
 
 
 async def process_sms(db: Session, from_number: str, body: str) -> str:
@@ -38,14 +39,14 @@ async def process_sms(db: Session, from_number: str, body: str) -> str:
             "Welcome back to TrafficSMS!\n\n"
             "Reply SUBSCRIBE to get started.\n\n"
             "Or visit:\n\n"
-            "https://trafficsms.com/signup"
+            f"{REGISTRATION_URL}"
         )
 
     if message == "SUBSCRIBE":
         return (
             "Thanks for choosing TrafficSMS!\n\n"
             "Complete your subscription at:\n\n"
-            "https://trafficsms.com/signup"
+            f"{REGISTRATION_URL}"
         )
 
     #
@@ -56,7 +57,7 @@ async def process_sms(db: Session, from_number: str, body: str) -> str:
             "Welcome to TrafficSMS!\n\n"
             "Reply SUBSCRIBE to get started.\n\n"
             "Or visit:\n\n"
-            "https://trafficsms.com/signup"
+            f"{REGISTRATION_URL}"
         )
 
     #
@@ -66,7 +67,7 @@ async def process_sms(db: Session, from_number: str, body: str) -> str:
         return (
             "TrafficSMS requires an active subscription.\n\n"
             "Visit:\n\n"
-            "https://trafficsms.com/signup"
+            f"{REGISTRATION_URL}"
         )
     
     vote_match = VOTE_RE.match(text)

@@ -17,5 +17,5 @@ COPY . .
 
 EXPOSE 8000
 
-# Run the FastAPI application with multiple workers
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Run Alembic migrations, then start the FastAPI application.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]

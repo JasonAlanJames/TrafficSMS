@@ -1,8 +1,19 @@
 from __future__ import annotations
-from datetime import datetime
+
+from datetime import UTC, datetime
 from enum import Enum
-from sqlalchemy import String, DateTime, Integer, Float, Boolean, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.core.database import Base
 
 
@@ -11,6 +22,7 @@ class SubscriptionStatus(str, Enum):
     active = "active"
     past_due = "past_due"
     canceled = "canceled"
+
 
 class SubscriptionPlan(str, Enum):
     standard = "standard"
@@ -28,15 +40,93 @@ class User(Base):
         index=True,
     )
 
+    password_hash: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     phone_e164: Mapped[str | None] = mapped_column(
         String(32),
         unique=True,
         index=True,
     )
 
-    #
-    # Saved Locations
-    #
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        index=True,
+    )
+
+    verification_token: Mapped[str | None] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
+
+    verification_token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    phone_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+    )
+
+    password_reset_token: Mapped[str | None] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
+
+    password_reset_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        index=True,
+    )
+
+    is_locked: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        index=True,
+    )
+
+    failed_login_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    last_login: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    last_failed_login: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    sms_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    marketing_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     home_location: Mapped[str | None] = mapped_column(
         String(255)
@@ -54,10 +144,6 @@ class User(Base):
         String(255)
     )
 
-    #
-    # Default Location
-    #
-
     default_state: Mapped[str | None] = mapped_column(
         String(2),
         nullable=True,
@@ -67,10 +153,6 @@ class User(Base):
         String(2),
         default="US",
     )
-
-    #
-    # Subscription Information
-    #
 
     subscription_status: Mapped[str] = mapped_column(
         String(32),
@@ -83,10 +165,6 @@ class User(Base):
         nullable=True,
         index=True,
     )
-
-    #
-    # Stripe
-    #
 
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String(128),
@@ -130,27 +208,33 @@ class User(Base):
         DateTime
     )
 
-    #
-    # Usage
-    #
-
     monthly_sms_count: Mapped[int] = mapped_column(
         Integer,
         default=0,
     )
-
-    #
-    # Audit
-    #
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
     )
 
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        "RefreshToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
 
 class CommunityReport(Base):
     __tablename__ = "community_reports"
+
     id: Mapped[int] = mapped_column(primary_key=True)
     reporter_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     report_type: Mapped[str] = mapped_column(String(64), index=True)
@@ -170,6 +254,7 @@ class CommunityReport(Base):
 class ReportVote(Base):
     __tablename__ = "report_votes"
     __table_args__ = (UniqueConstraint("report_id", "voter_key", name="uq_report_voter"),)
+
     id: Mapped[int] = mapped_column(primary_key=True)
     report_id: Mapped[int] = mapped_column(ForeignKey("community_reports.id"), index=True)
     voter_key: Mapped[str] = mapped_column(String(128))
@@ -179,6 +264,7 @@ class ReportVote(Base):
 
 class EnforcementCamera(Base):
     __tablename__ = "enforcement_cameras"
+
     id: Mapped[int] = mapped_column(primary_key=True)
     camera_type: Mapped[str] = mapped_column(String(64))
     road_name: Mapped[str] = mapped_column(String(160), index=True)
@@ -194,6 +280,7 @@ class EnforcementCamera(Base):
 
 class DuiNotice(Base):
     __tablename__ = "dui_notices"
+
     id: Mapped[int] = mapped_column(primary_key=True)
     agency: Mapped[str] = mapped_column(String(200))
     area_label: Mapped[str] = mapped_column(String(200), index=True)

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-import stripe
 from datetime import datetime, timezone
+
+import stripe
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.entities import User
@@ -37,11 +39,17 @@ async def stripe_webhook(
 
         if email:
             user = db.scalar(
-                select(User).where(User.email == email)
+                select(User).where(
+                    func.lower(User.email) == email.lower()
+                )
             )
 
             if user is None:
-                user = User(email=email)
+                user = User(
+                    email=email.lower(),
+                    email_verified=False,
+                    is_active=True,
+                )
 
             user.stripe_customer_id = obj.get("customer")
             user.subscription_status = "active"
@@ -58,6 +66,7 @@ async def stripe_webhook(
 
             db.add(user)
             db.commit()
+            db.refresh(user)
     elif event["type"] in {
         "customer.subscription.created",
         "customer.subscription.updated",
