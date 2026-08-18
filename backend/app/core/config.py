@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -144,6 +144,7 @@ class Settings(BaseSettings):
             "refresh_token_retention_days",
         ),
     )
+
     smtp_host: str = Field(
         default="",
         validation_alias=AliasChoices("SMTP_HOST", "smtp_host"),
@@ -313,6 +314,40 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @model_validator(mode="after")
+    def validate_environment_secrets(self) -> "Settings":
+        """
+        Prevent production Stripe credentials from being used accidentally
+        by local development or automated test environments.
+
+        This guard exists specifically to ensure that local authentication
+        and billing tests cannot create real Stripe customers, charges,
+        subscriptions, or other live-mode Stripe resources.
+        """
+        environment = (self.app_env or "").strip().lower()
+        stripe_key = (self.stripe_secret_key or "").strip()
+
+        non_production_environments = {
+            "development",
+            "dev",
+            "test",
+            "testing",
+            "local",
+        }
+
+        if (
+            environment in non_production_environments
+            and stripe_key.startswith("sk_live_")
+        ):
+            raise ValueError(
+                "SECURITY BLOCK: TrafficSMS refuses to use a live Stripe "
+                "secret key when APP_ENV is development, dev, test, testing, "
+                "or local. Use a Stripe test-mode key (sk_test_...) or leave "
+                "STRIPE_SECRET_KEY empty."
+            )
+
+        return self
+
     @property
     def APP_NAME(self) -> str:
         return self.app_name
@@ -437,7 +472,10 @@ class Settings(BaseSettings):
 
     @property
     def STRIPE_PORTAL_RETURN_URL(self) -> str:
-        return self.stripe_portal_return_url or f"{self.frontend_url.rstrip('/')}/dashboard"
+        return (
+            self.stripe_portal_return_url
+            or f"{self.frontend_url.rstrip('/')}/dashboard"
+        )
 
     @property
     def ADMIN_EMAILS(self) -> list[str]:

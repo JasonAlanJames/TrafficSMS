@@ -163,6 +163,16 @@ class SmtpEmailService(EmailService):
     ) -> EmailContent:
         subject = "Verify your TrafficSMS account"
         verification_url = self._verification_url(token)
+        url_token = self._extract_token_from_url(verification_url)
+        if self._is_development_logging_enabled():
+            logger.warning(
+                "Verification email URL built recipient=%s token_preview=%s url_token_preview=%s identical=%s url=%s",
+                recipient,
+                self._token_preview(token),
+                self._token_preview(url_token),
+                url_token == token,
+                verification_url,
+            )
         requested_copy = (
             "A new verification link was requested for your account."
             if requested_again
@@ -253,6 +263,25 @@ class SmtpEmailService(EmailService):
 
     def _password_reset_endpoint(self) -> str:
         return f"{self.settings.public_base_url.rstrip('/')}/auth/reset-password"
+
+    @staticmethod
+    def _token_preview(token: str | None) -> str:
+        if not token:
+            return "<empty>"
+        if len(token) <= 16:
+            return token
+        return f"{token[:8]}...{token[-8:]}"
+
+    def _is_development_logging_enabled(self) -> bool:
+        return self.settings.app_env.strip().lower() == "development"
+
+    @staticmethod
+    def _extract_token_from_url(url: str) -> str:
+        token_key = "token="
+        index = url.find(token_key)
+        if index < 0:
+            return ""
+        return url[index + len(token_key):]
 
 
 @lru_cache
