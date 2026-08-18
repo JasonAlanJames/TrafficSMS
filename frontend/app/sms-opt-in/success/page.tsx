@@ -23,6 +23,9 @@ export default function SmsOptInSuccessPage() {
             After verification you&apos;ll be able to choose your TrafficSMS subscription.
           </p>
           <div className={styles.stack}>
+            <Link className={styles.secondaryButton} href="/login">
+              Continue to Sign In
+            </Link>
             <Link className={styles.button} href="/">
               Return to Home
             </Link>

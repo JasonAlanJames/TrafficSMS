@@ -1,71 +1,207 @@
-# TrafficSMS SaaS MVP
+# TrafficSMS
 
-Production-oriented starter for a localized traffic-information subscription platform using FastAPI, Next.js, PostgreSQL/PostGIS, Redis, Twilio SMS, and Stripe Checkout.
+TrafficSMS is a production-focused SaaS platform for traffic intelligence delivered through SMS and mobile web. The application is built with FastAPI, Next.js, PostgreSQL/PostGIS, Redis, Twilio, and Stripe.
 
-## Implemented
+Current release: `v0.5.0-alpha`
 
-- Monthly **$4.99** and annual **$49.99** Stripe subscription checkout.
-- Stripe webhook activation and subscription-status synchronization.
-- Twilio inbound SMS webhook with request-signature validation outside development.
-- `TRAFFIC [area]` traffic summaries through a provider abstraction.
-- Peer police reports: visible, hidden, opposite side, and mobile camera.
-- `P{id} YES`, `P{id} NO`, and `P{id} UNSURE` confirmations.
-- Automatic expiry and confidence/status updates for temporary reports.
-- Fixed/mobile enforcement-camera schema with official/community source labeling.
-- Official-source-only DUI enforcement notice schema and message inclusion.
-- Mobile-first Next.js landing, pricing, and dashboard pages.
+## What is live in this repository
 
-## Commands
+- Authenticated account registration and login
+- JWT access tokens with rotating refresh tokens, replay detection, and session version invalidation
+- Email verification resend, verification expiration handling, and password reset resend protection
+- Login rate limiting, timed account lockouts, unlock logic, and authentication audit events
+- Session listing and single-session revocation support
+- Profile, password, email, and phone update endpoints
+- SMS opt-in registration flow for Twilio compliance
+- Stripe customer creation, checkout, portal access, plan changes, cancellation, reconciliation, and metadata tagging
+- Subscription state sync through Stripe webhooks with duplicate-event protection, grace-period handling, and trial-ready fields
+- Monthly SMS allowance tracking with atomic usage updates and reset-by-billing-period history
+- Account dashboard with live subscription, usage, billing history, verification state, saved places, security controls, and session management
+- Admin subscription inspection endpoint
+
+## Subscription model
+
+- `standard`: 60 SMS requests per billing period
+- `unlimited`: 200 SMS requests per billing period
+- Both paid plans keep web access available through the dashboard and billing portal
+
+## Billing API
+
+User billing endpoints:
+
+- `GET /billing/pricing`
+- `POST /billing/create-checkout-session`
+- `POST /billing/customer-portal`
+- `GET /billing/subscription`
+- `GET /billing/usage`
+- `GET /billing/history`
+- `POST /billing/reconcile`
+- `POST /billing/change-plan`
+- `POST /billing/cancel`
+
+Webhook endpoint:
+
+- `POST /webhooks/stripe`
+
+Admin endpoint:
+
+- `GET /admin/users/{user_id}/subscription`
+
+## Repository layout
+
+```text
+TrafficSMS/
+|-- backend/
+|   |-- app/
+|   |   |-- api/
+|   |   |-- auth/
+|   |   |-- billing/
+|   |   |-- core/
+|   |   |-- database/
+|   |   |-- models/
+|   |   `-- services/
+|   |-- tests/
+|   |-- .env.example
+|   |-- alembic.ini
+|   `-- requirements.txt
+|-- frontend/
+|   |-- app/
+|   |-- components/
+|   `-- lib/
+|-- docker-compose.yml
+|-- docker-compose.dev.yml
+|-- docker-compose.prod.yml
+|-- CHANGELOG.md
+|-- PRODUCTION_ROADMAP.md
+`-- README.md
+```
+
+## Local development
+
+Backend:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Frontend:
+
+```bash
+cp frontend/.env.local.example frontend/.env.local
+```
+
+Start the stack:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Default local URLs:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+- OpenAPI docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+
+## Required backend billing configuration
+
+These values must be set for production billing:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_STANDARD_MONTHLY_PRICE_ID`
+- `STRIPE_UNLIMITED_MONTHLY_PRICE_ID`
+- `STRIPE_PORTAL_RETURN_URL`
+- `ADMIN_EMAILS`
+
+The example env file also includes product ID slots for compatibility, but pricing now resolves from the configured Stripe price IDs.
+
+## Database and migrations
+
+TrafficSMS uses PostgreSQL 17, PostGIS, and Alembic. Billing adds these production tables:
+
+- `subscriptions`
+- `usage_tracking`
+- `billing_events`
+- `auth_events`
+
+The Monday, August 17, 2026 hardening migration also:
+
+- adds auth/session hardening columns to `users` and `refresh_tokens`
+- removes redundant duplicate unique indexes where matching unique constraints already exist
+- normalizes user billing timestamps to timezone-aware PostgreSQL columns
+- adds subscription grace-period, trial, and reconciliation fields
+
+Run migrations:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+## Frontend account experience
+
+The dashboard is now the primary account center and shows:
+
+- Subscription plan and status
+- Renewal timing and cancellation state
+- Remaining SMS and monthly allowance
+- Usage progress with billing-period resets
+- Billing history
+- Stripe portal access, reconciliation, upgrade, downgrade, and cancellation actions
+- Email and phone verification status
+- Active device sessions with single-session revocation
+- Profile, password, email, and phone management
+- Saved home, work, gym, and school locations
+- Derived saved-route combinations from configured locations
+
+The pricing page now uses the authenticated billing APIs for checkout and plan switching.
+
+## SMS behavior
+
+TrafficSMS supports commands such as:
 
 ```text
 TRAFFIC
 TRAFFIC 92882
-TRAFFIC CORONA CA
 POLICE VISIBLE I-15 N NEAR MAGNOLIA
-POLICE HIDDEN SR-91 W NEAR MAIN
-POLICE OTHER SIDE I-15 S NEAR CAJALCO
 P42 YES
 P42 NO
 P42 UNSURE
 HELP
 STOP
+START
 ```
 
-## Setup
+Paid-plan SMS usage is enforced against the active billing period, and replies now include remaining SMS where appropriate.
 
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.local.example frontend/.env.local
-docker compose up
-```
+## Testing and validation
 
-Open `http://localhost:3000`; API health is at `http://localhost:8000/health`.
+Validated on Monday, August 17, 2026:
 
-## Stripe
+- Backend integration suite: `26 passed`
+- Frontend production build: `next build` succeeded
+- Alembic migration smoke: `alembic upgrade head` succeeded against Dockerized PostgreSQL
+- Docker runtime smoke: `docker compose -f docker-compose.dev.yml up -d api` served `GET /health` with `200 OK`
 
-1. Create a recurring product with monthly price `$4.99` and annual price `$49.99`.
-2. Put both Price IDs into `backend/.env`.
-3. Register `/webhooks/stripe` and subscribe to:
-   - `checkout.session.completed`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-   - recommended production additions: `invoice.paid`, `invoice.payment_failed`
-4. Put the signing secret into `STRIPE_WEBHOOK_SECRET`.
+The backend test suite covers authentication plus billing checkout, portal access, reconciliation, webhooks, subscription sync, plan changes, cancellation, usage enforcement, monthly reset behavior, billing history, admin subscription access, session revocation, replay detection, rate limiting, lockout recovery, profile mutation, and contact updates.
 
-## Twilio
+## Current roadmap snapshot
 
-1. Buy a messaging-capable U.S. number or configure a Messaging Service.
-2. Set the incoming-message webhook to `POST https://YOUR-API/webhooks/twilio/inbound`.
-3. Complete A2P 10DLC registration before production U.S. 10DLC messaging.
-4. Configure opt-in language, HELP, STOP, START, privacy policy, terms, and support information.
-5. Set `PUBLIC_BASE_URL` exactly to the externally visible API origin; Twilio signature validation depends on the complete public URL.
+- Phase 1 infrastructure: complete
+- Phase 2 authentication: complete to production quality, with external email delivery follow-up
+- Phase 3 Stripe billing and subscription management: complete to production quality
+- Phase 4 traffic engine expansion: in progress
+- Phase 5 SMS platform hardening: in progress
+- Phase 6 production deployment: planned
 
-## Critical next implementation work
+## Deployment follow-up
 
-- Replace `DemoTrafficProvider` with state DOT/511 provider adapters.
-- Add authentication, phone verification, Stripe customer portal, and account settings.
-- Add PostGIS route matching and a commercial routing/travel-time provider.
-- Add an official-source ingestion pipeline for DUI notices and camera datasets.
-- Add migrations with Alembic instead of `create_all`.
-- Add recurring usage reset, rate limiting, audit logs, moderation, abuse detection, and idempotent webhook-event storage.
-- Have counsel review jurisdiction-specific data use, messaging disclosures, privacy, and enforcement-camera rules before launch.
+The codebase is ready for the next deployment pass, but production still needs:
+
+- Transactional email delivery for verification, email-change, and reset messages
+- Public deployment for Twilio verification evidence and carrier-facing compliance review
+- Monitoring, alerting, backups, and CI/CD hardening
+- Production-grade `SECRET_KEY`
+- Rotation of any previously exposed provider secrets before public rollout

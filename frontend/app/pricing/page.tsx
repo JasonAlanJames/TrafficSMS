@@ -1,164 +1,251 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { useAuth } from '../../components/auth/AuthProvider';
+import {
+  ApiError,
+  changePlan,
+  createCheckoutSession,
+  getBillingSubscription,
+  getPricing,
+  type BillingPlan,
+  type PricingPlan,
+  type SubscriptionSummary,
+} from '../../lib/api';
 
-type PlanPricing = {
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    currency: string;
-    interval: string;
-    price_id: string;
-};
+function formatCurrency(amount: number, currency: string): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency || 'USD',
+  }).format(amount);
+}
 
-export default function Pricing() {
-    const [email, setEmail] = useState('');
-    const [busy, setBusy] = useState(false);
+function formatInterval(interval: string): string {
+  if (interval === 'month') {
+    return 'month';
+  }
 
-    const [pricing, setPricing] = useState<PlanPricing[]>([]);
+  return interval;
+}
 
-    useEffect(() => {
-    async function loadPricing() {
-        try {
-            const response = await fetch(`${API}/billing/pricing`);
+export default function PricingPage() {
+  const router = useRouter();
+  const { initialized, isAuthenticated, session } = useAuth();
+  const [pricing, setPricing] = useState<PricingPlan[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [busyPlan, setBusyPlan] = useState<BillingPlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-            if (!response.ok) {
-                throw new Error("Unable to load pricing.");
-            }
+  useEffect(() => {
+    let cancelled = false;
 
-            const data: PlanPricing[] = await response.json();
-            setPricing(data);
-        } catch (err) {
-            console.error("Failed to load pricing:", err);
+    async function loadPage() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const nextPricing = await getPricing();
+
+        if (!cancelled) {
+          setPricing(nextPricing);
         }
+
+        if (isAuthenticated && session?.accessToken) {
+          const nextSubscription = await getBillingSubscription(session.accessToken);
+
+          if (!cancelled) {
+            setSubscription(nextSubscription);
+          }
+        } else if (!cancelled) {
+          setSubscription(null);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          const nextMessage =
+            loadError instanceof Error
+              ? loadError.message
+              : 'Unable to load pricing right now.';
+          setError(nextMessage);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     }
 
-    loadPricing();
-}, []);
+    void loadPage();
 
-const standard =
-    pricing.find((p) => p.name.includes("Standard"));
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, session?.accessToken]);
 
-const unlimited =
-    pricing.find((p) => p.name.includes("Unlimited"));
+  useEffect(() => {
+    const checkoutState = new URLSearchParams(window.location.search).get('checkout');
 
-    async function buy(plan: 'standard' | 'unlimited') {
-        setBusy(true);	
-
-        try {
-            const response = await fetch(`${API}/billing/checkout`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email,
-                    plan,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || 'Checkout failed.');
-            }
-
-            window.location.href = data.url;
-        } catch (error) {
-            alert(error instanceof Error ? error.message : 'Checkout failed.');
-            setBusy(false);
-        }
+    if (checkoutState === 'canceled') {
+      setMessage('Checkout was canceled. Your subscription has not changed.');
+      return;
     }
 
+    setMessage(null);
+  }, []);
+
+  const standard = useMemo(
+    () => pricing.find((plan) => plan.plan === 'standard') ?? null,
+    [pricing],
+  );
+  const unlimited = useMemo(
+    () => pricing.find((plan) => plan.plan === 'unlimited') ?? null,
+    [pricing],
+  );
+
+  const activePlan = subscription?.plan ?? 'free';
+  const hasExistingSubscription = Boolean(subscription?.stripe_subscription_id);
+
+  async function handlePlanAction(plan: BillingPlan) {
+    if (!initialized) {
+      return;
+    }
+
+    if (!isAuthenticated || !session?.accessToken) {
+      router.push('/login');
+      return;
+    }
+
+    setBusyPlan(plan);
+    setError(null);
+    setMessage(null);
+
+    try {
+      if (hasExistingSubscription && activePlan !== 'free') {
+        const nextSubscription = await changePlan(session.accessToken, plan);
+        setSubscription(nextSubscription);
+        setMessage(`Your plan has been updated to ${plan}.`);
+        return;
+      }
+
+      const checkout = await createCheckoutSession(session.accessToken, plan);
+      window.location.assign(checkout.url);
+    } catch (actionError) {
+      const nextMessage =
+        actionError instanceof ApiError || actionError instanceof Error
+          ? actionError.message
+          : 'Unable to start billing right now.';
+      setError(nextMessage);
+    } finally {
+      setBusyPlan(null);
+    }
+  }
+
+  function buttonLabel(plan: BillingPlan): string {
+    if (!initialized || isLoading) {
+      return 'Loading...';
+    }
+
+    if (!isAuthenticated) {
+      return 'Sign in to subscribe';
+    }
+
+    if (activePlan === plan && subscription?.status === 'active') {
+      return 'Current plan';
+    }
+
+    if (hasExistingSubscription && activePlan !== 'free') {
+      return plan === 'unlimited' ? 'Upgrade to Unlimited' : 'Downgrade to Standard';
+    }
+
+    return plan === 'standard' ? 'Subscribe to Standard' : 'Subscribe to Unlimited';
+  }
+
+  function isButtonDisabled(plan: BillingPlan): boolean {
     return (
-        <section className="hero">
-            <h1>Choose Your TrafficSMS Plan</h1>
-
-            <div className="grid">
-
-                <div className="card">
-                    <h2>Standard</h2>
-
-                    <div className="price">
-                        {standard ? `$${standard.price.toFixed(2)}` : "..."}
-                    </div>
-
-                    <p className="muted">
-                        {standard ? `per ${standard.interval}` : "Loading..."}
-                    </p>
-
-                    <ul className="muted">
-                        <li>60 SMS traffic requests/month</li>
-                        <li>5 saved routes</li>
-                        <li>Commute alerts</li>
-                        <li>Traffic incidents</li>
-                        <li>Road closures</li>
-                        <li>Travel delays</li>
-                    </ul>
-
-                    <input
-                        className="input"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
-
-                    <button
-                        className="cta"
-                        disabled={busy || !email}
-                        onClick={() => buy('standard')}
-                    >
-                        Subscribe to Standard
-                    </button>
-                </div>
-
-                <div className="card">
-                    <h2>Unlimited</h2>
-
-                    <div className="price">
-                         {unlimited ? `$${unlimited.price.toFixed(2)}` : "..."}
-                    </div>
-
-                    <p className="muted">
-                         {unlimited ? `per ${unlimited.interval}` : "Loading..."}
-                    </p>
-
-                    <ul className="muted">
-                        <li>Unlimited SMS requests</li>
-                        <li>Unlimited saved routes</li>
-                        <li>Priority notifications</li>
-                        <li>Community traffic reports</li>
-                        <li>Enforcement camera notices</li>
-                        <li>DUI checkpoint alerts</li>
-                    </ul>
-
-                    <input
-                        className="input"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
-
-                    <button
-                        className="cta"
-                        disabled={busy || !email}
-                        onClick={() => buy('unlimited')}
-                    >
-                        Subscribe to Unlimited
-                    </button>
-                </div>
-
-            </div>
-
-            <p className="muted">
-                TrafficSMS subscriptions renew monthly until canceled. Message and
-                data rates may apply depending on your wireless carrier.
-            </p>
-        </section>
+      busyPlan !== null ||
+      isLoading ||
+      !initialized ||
+      (activePlan === plan && subscription?.status === 'active')
     );
+  }
+
+  return (
+    <section className="hero">
+      <div className="card" style={{ marginBottom: '1.25rem' }}>
+        <span className="pill">Billing</span>
+        <h1>Choose Your TrafficSMS plan</h1>
+        <p className="muted">
+          Every paid account includes unlimited web access, account management, and live SMS quota tracking.
+        </p>
+        {subscription ? (
+          <p className="muted" style={{ marginTop: '0.75rem' }}>
+            Current plan: <strong>{subscription.plan}</strong> with status <strong>{subscription.status}</strong>.
+          </p>
+        ) : null}
+        {message ? <p className="statusMessage">{message}</p> : null}
+        {error ? <p className="errorMessage">{error}</p> : null}
+      </div>
+
+      <div className="grid">
+        {[standard, unlimited].map((plan) => {
+          if (!plan) {
+            return null;
+          }
+
+          const planKey = plan.plan as BillingPlan;
+
+          return (
+            <div className="card" key={plan.plan}>
+              <h2>{plan.name}</h2>
+              <div className="price">{formatCurrency(plan.price, plan.currency)}</div>
+              <p className="muted">per {formatInterval(plan.interval)}</p>
+              <p className="muted" style={{ minHeight: '3rem' }}>
+                {plan.description ?? 'Production-ready subscription billing through Stripe.'}
+              </p>
+
+              <div className="features">
+                Included SMS per month: {plan.sms_allowance}
+                <br />
+                Unlimited dashboard access
+                <br />
+                Subscription management portal
+                <br />
+                Live billing history
+              </div>
+
+              <button
+                className="cta"
+                type="button"
+                disabled={isButtonDisabled(planKey)}
+                onClick={() => void handlePlanAction(planKey)}
+                style={{ marginTop: '1.25rem', width: '100%' }}
+              >
+                {busyPlan === planKey ? 'Working...' : buttonLabel(planKey)}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card" style={{ marginTop: '1.25rem' }}>
+        <h2>What happens next</h2>
+        <div className="features">
+          Stripe Checkout is used for new purchases.
+          <br />
+          Existing subscribers can switch plans from here or manage billing from the dashboard.
+          <br />
+          Usage resets automatically each billing period and stays visible in account history.
+        </div>
+        {!isAuthenticated ? (
+          <p className="muted" style={{ marginTop: '1rem' }}>
+            You'll need to <Link href="/login">sign in</Link> before checkout can begin.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
 }

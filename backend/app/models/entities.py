@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,7 +38,6 @@ class User(Base):
     email: Mapped[str] = mapped_column(
         String(320),
         unique=True,
-        index=True,
     )
 
     password_hash: Mapped[str | None] = mapped_column(
@@ -48,7 +48,6 @@ class User(Base):
     phone_e164: Mapped[str | None] = mapped_column(
         String(32),
         unique=True,
-        index=True,
     )
 
     email_verified: Mapped[bool] = mapped_column(
@@ -60,11 +59,15 @@ class User(Base):
     verification_token: Mapped[str | None] = mapped_column(
         String(64),
         unique=True,
-        index=True,
         nullable=True,
     )
 
     verification_token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    verification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -77,11 +80,15 @@ class User(Base):
     password_reset_token: Mapped[str | None] = mapped_column(
         String(64),
         unique=True,
-        index=True,
         nullable=True,
     )
 
     password_reset_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    password_reset_requested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -98,9 +105,20 @@ class User(Base):
         index=True,
     )
 
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     failed_login_attempts: Mapped[int] = mapped_column(
         Integer,
         default=0,
+    )
+
+    session_token_version: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
     )
 
     last_login: Mapped[datetime | None] = mapped_column(
@@ -124,6 +142,28 @@ class User(Base):
     )
 
     marketing_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    pending_email: Mapped[str | None] = mapped_column(
+        String(320),
+        unique=True,
+        nullable=True,
+    )
+
+    pending_email_verification_token: Mapped[str | None] = mapped_column(
+        String(64),
+        unique=True,
+        nullable=True,
+    )
+
+    pending_email_verification_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    phone_verification_requested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -152,6 +192,7 @@ class User(Base):
     default_country: Mapped[str] = mapped_column(
         String(2),
         default="US",
+        server_default="US",
     )
 
     subscription_status: Mapped[str] = mapped_column(
@@ -169,13 +210,11 @@ class User(Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String(128),
         unique=True,
-        index=True,
     )
 
     stripe_subscription_id: Mapped[str | None] = mapped_column(
         String(128),
         unique=True,
-        index=True,
     )
 
     stripe_price_id: Mapped[str | None] = mapped_column(
@@ -184,11 +223,11 @@ class User(Base):
     )
 
     current_period_start: Mapped[datetime | None] = mapped_column(
-        DateTime
+        DateTime(timezone=True)
     )
 
     current_period_end: Mapped[datetime | None] = mapped_column(
-        DateTime
+        DateTime(timezone=True)
     )
 
     cancel_at_period_end: Mapped[bool] = mapped_column(
@@ -197,15 +236,15 @@ class User(Base):
     )
 
     last_payment_date: Mapped[datetime | None] = mapped_column(
-        DateTime
+        DateTime(timezone=True)
     )
 
     next_billing_date: Mapped[datetime | None] = mapped_column(
-        DateTime
+        DateTime(timezone=True)
     )
 
     subscription_updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime
+        DateTime(timezone=True)
     )
 
     monthly_sms_count: Mapped[int] = mapped_column(
@@ -214,20 +253,28 @@ class User(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         "RefreshToken",
         back_populates="user",
         cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    auth_events: Mapped[list["AuthEvent"]] = relationship(
+        "AuthEvent",
+        back_populates="user",
         passive_deletes=True,
     )
 

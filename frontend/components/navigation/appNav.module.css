@@ -1,0 +1,90 @@
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 0 1.75rem;
+}
+
+.brandBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.brand {
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.tagline {
+  color: #9fb3c8;
+  font-size: 0.92rem;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.link,
+.linkActive {
+  text-decoration: none;
+  color: #dbe9f6;
+  font-weight: 600;
+}
+
+.linkActive {
+  color: #7be0b8;
+}
+
+.sessionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #294761;
+  background: rgba(16, 34, 56, 0.88);
+  color: #b9c9da;
+  font-size: 0.92rem;
+}
+
+.button {
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #58d09b, #3cabd1);
+  color: #07111f;
+  font-weight: 800;
+  padding: 0.78rem 1rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+@media (max-width: 720px) {
+  .nav {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .links,
+  .sessionRow {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

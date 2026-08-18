@@ -49,6 +49,28 @@ services:
     networks:
       - trafficsms-network
 
+
+  ####################################################################
+  # Mailpit (Development Email Server)
+  ####################################################################
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: trafficsms-mailpit
+
+    restart: unless-stopped
+
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - trafficsms-network
   api:
     image: python:3.12-slim
     container_name: trafficsms-api

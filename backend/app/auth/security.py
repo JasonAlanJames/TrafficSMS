@@ -53,6 +53,10 @@ def create_access_token(
     )
 
 
+def get_access_token_expires_in() -> int:
+    return settings.access_token_expire_minutes * 60
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     try:
         payload = jwt.decode(

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 E164_US_PATTERN = re.compile(r"^\+1\d{10}$")
 
@@ -50,8 +51,13 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    identifier: str = Field(min_length=3, max_length=320)
+    identifier: str = Field(
+        min_length=3,
+        max_length=320,
+        validation_alias=AliasChoices("identifier", "email"),
+    )
     password: str = Field(min_length=8, max_length=128)
+    remember_me: bool = False
 
 
 class RefreshTokenRequest(BaseModel):
@@ -80,6 +86,10 @@ class VerifyEmailRequest(BaseModel):
     token: str
 
 
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
 class AuthenticatedUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -91,18 +101,26 @@ class AuthenticatedUser(BaseModel):
     email_verified: bool
     phone_verified: bool
     is_active: bool
+    home_location: str | None
+    work_location: str | None
+    gym_location: str | None
+    school_location: str | None
+    default_state: str | None
+    default_country: str
+    pending_email: EmailStr | None
+    phone_verification_requested_at: datetime | None
     created_at: datetime
 
 
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
+    expires_in: int
     token_type: str = "bearer"
 
 
-class AuthenticationResponse(BaseModel):
+class AuthenticationResponse(TokenResponse):
     user: AuthenticatedUser
-    tokens: TokenResponse
 
 
 class RegisterResponse(BaseModel):
@@ -112,3 +130,74 @@ class RegisterResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class UpdateProfileRequest(BaseModel):
+    home_location: str | None = Field(default=None, max_length=255)
+    work_location: str | None = Field(default=None, max_length=255)
+    gym_location: str | None = Field(default=None, max_length=255)
+    school_location: str | None = Field(default=None, max_length=255)
+    default_state: str | None = Field(default=None, min_length=2, max_length=2)
+    default_country: str | None = Field(default=None, min_length=2, max_length=2)
+
+    @field_validator(
+        "home_location",
+        "work_location",
+        "gym_location",
+        "school_location",
+    )
+    @classmethod
+    def normalize_location(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("default_state", "default_country")
+    @classmethod
+    def normalize_region(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip().upper()
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, value: str) -> str:
+        return validate_password_strength(value)
+
+
+class ChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+    current_password: str = Field(min_length=8, max_length=128)
+
+
+class ConfirmEmailChangeRequest(BaseModel):
+    token: str
+
+
+class ChangePhoneRequest(BaseModel):
+    phone_number: str
+    current_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, value: str) -> str:
+        if not E164_US_PATTERN.fullmatch(value):
+            raise ValueError("Phone number must be a valid US E.164 value.")
+        return value
+
+
+class SessionInfoResponse(BaseModel):
+    id: UUID
+    ip_address: str | None
+    user_agent: str | None
+    device_name: str | None
+    created_at: datetime
+    last_used_at: datetime | None
+    expires_at: datetime
+    is_current: bool

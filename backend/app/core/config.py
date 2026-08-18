@@ -88,11 +88,25 @@ class Settings(BaseSettings):
             "email_verification_token_expire_hours",
         ),
     )
+    email_verification_resend_cooldown_seconds: int = Field(
+        default=60,
+        validation_alias=AliasChoices(
+            "EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS",
+            "email_verification_resend_cooldown_seconds",
+        ),
+    )
     password_reset_token_expire_hours: int = Field(
         default=1,
         validation_alias=AliasChoices(
             "PASSWORD_RESET_TOKEN_EXPIRE_HOURS",
             "password_reset_token_expire_hours",
+        ),
+    )
+    password_reset_resend_cooldown_seconds: int = Field(
+        default=120,
+        validation_alias=AliasChoices(
+            "PASSWORD_RESET_RESEND_COOLDOWN_SECONDS",
+            "password_reset_resend_cooldown_seconds",
         ),
     )
     failed_login_lockout_threshold: int = Field(
@@ -101,6 +115,66 @@ class Settings(BaseSettings):
             "FAILED_LOGIN_LOCKOUT_THRESHOLD",
             "failed_login_lockout_threshold",
         ),
+    )
+    failed_login_window_minutes: int = Field(
+        default=15,
+        validation_alias=AliasChoices(
+            "FAILED_LOGIN_WINDOW_MINUTES",
+            "failed_login_window_minutes",
+        ),
+    )
+    failed_login_rate_limit_attempts: int = Field(
+        default=10,
+        validation_alias=AliasChoices(
+            "FAILED_LOGIN_RATE_LIMIT_ATTEMPTS",
+            "failed_login_rate_limit_attempts",
+        ),
+    )
+    account_lockout_minutes: int = Field(
+        default=15,
+        validation_alias=AliasChoices(
+            "ACCOUNT_LOCKOUT_MINUTES",
+            "account_lockout_minutes",
+        ),
+    )
+    refresh_token_retention_days: int = Field(
+        default=30,
+        validation_alias=AliasChoices(
+            "REFRESH_TOKEN_RETENTION_DAYS",
+            "refresh_token_retention_days",
+        ),
+    )
+    smtp_host: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_HOST", "smtp_host"),
+    )
+    smtp_port: int = Field(
+        default=0,
+        validation_alias=AliasChoices("SMTP_PORT", "smtp_port"),
+    )
+    smtp_username: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_USERNAME", "smtp_username"),
+    )
+    smtp_password: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_PASSWORD", "smtp_password"),
+    )
+    smtp_tls: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("SMTP_TLS", "smtp_tls"),
+    )
+    smtp_ssl: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("SMTP_SSL", "smtp_ssl"),
+    )
+    mail_from: str = Field(
+        default="",
+        validation_alias=AliasChoices("MAIL_FROM", "mail_from"),
+    )
+    mail_from_name: str = Field(
+        default="",
+        validation_alias=AliasChoices("MAIL_FROM_NAME", "mail_from_name"),
     )
 
     twilio_account_sid: str = Field(
@@ -172,6 +246,27 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "STRIPE_UNLIMITED_MONTHLY_PRICE_ID",
             "stripe_unlimited_monthly_price_id",
+        ),
+    )
+    stripe_portal_return_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "STRIPE_PORTAL_RETURN_URL",
+            "stripe_portal_return_url",
+        ),
+    )
+    admin_emails: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "ADMIN_EMAILS",
+            "admin_emails",
+        ),
+    )
+    billing_grace_period_days: int = Field(
+        default=3,
+        validation_alias=AliasChoices(
+            "BILLING_GRACE_PERIOD_DAYS",
+            "billing_grace_period_days",
         ),
     )
 
@@ -261,6 +356,62 @@ class Settings(BaseSettings):
         return self.refresh_token_expire_days
 
     @property
+    def EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS(self) -> int:
+        return self.email_verification_resend_cooldown_seconds
+
+    @property
+    def PASSWORD_RESET_RESEND_COOLDOWN_SECONDS(self) -> int:
+        return self.password_reset_resend_cooldown_seconds
+
+    @property
+    def FAILED_LOGIN_WINDOW_MINUTES(self) -> int:
+        return self.failed_login_window_minutes
+
+    @property
+    def FAILED_LOGIN_RATE_LIMIT_ATTEMPTS(self) -> int:
+        return self.failed_login_rate_limit_attempts
+
+    @property
+    def ACCOUNT_LOCKOUT_MINUTES(self) -> int:
+        return self.account_lockout_minutes
+
+    @property
+    def REFRESH_TOKEN_RETENTION_DAYS(self) -> int:
+        return self.refresh_token_retention_days
+
+    @property
+    def SMTP_HOST(self) -> str:
+        return self.smtp_host
+
+    @property
+    def SMTP_PORT(self) -> int:
+        return self.smtp_port
+
+    @property
+    def SMTP_USERNAME(self) -> str:
+        return self.smtp_username
+
+    @property
+    def SMTP_PASSWORD(self) -> str:
+        return self.smtp_password
+
+    @property
+    def SMTP_TLS(self) -> bool:
+        return self.smtp_tls
+
+    @property
+    def SMTP_SSL(self) -> bool:
+        return self.smtp_ssl
+
+    @property
+    def MAIL_FROM(self) -> str:
+        return self.mail_from
+
+    @property
+    def MAIL_FROM_NAME(self) -> str:
+        return self.mail_from_name
+
+    @property
     def STRIPE_SECRET_KEY(self) -> str:
         return self.stripe_secret_key
 
@@ -283,6 +434,22 @@ class Settings(BaseSettings):
     @property
     def STRIPE_UNLIMITED_MONTHLY_PRICE_ID(self) -> str:
         return self.stripe_unlimited_monthly_price_id
+
+    @property
+    def STRIPE_PORTAL_RETURN_URL(self) -> str:
+        return self.stripe_portal_return_url or f"{self.frontend_url.rstrip('/')}/dashboard"
+
+    @property
+    def ADMIN_EMAILS(self) -> list[str]:
+        return [
+            email.strip().lower()
+            for email in self.admin_emails.split(",")
+            if email.strip()
+        ]
+
+    @property
+    def BILLING_GRACE_PERIOD_DAYS(self) -> int:
+        return self.billing_grace_period_days
 
     @property
     def TWILIO_AUTH_TOKEN(self) -> str:

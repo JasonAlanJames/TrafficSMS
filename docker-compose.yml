@@ -104,9 +104,6 @@ services:
     volumes:
       - ./frontend:/app
 
-    environment:
-      NEXT_PUBLIC_API_URL: https://api.trafficsms.com
-
     depends_on:
       - api
 

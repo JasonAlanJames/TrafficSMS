@@ -2,6 +2,9 @@ import re
 from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.billing.exceptions import SubscriptionRequiredError, UsageLimitExceededError
+from app.billing.repository import BillingRepository
+from app.billing.service import BillingService
 from app.models.entities import User, CommunityReport, ReportVote
 from app.services.traffic import build_traffic_reply
 from app.services.traffic_parser import parse_traffic_command
@@ -14,6 +17,7 @@ REGISTRATION_URL = "https://trafficsms.com/sms-opt-in"
 async def process_sms(db: Session, from_number: str, body: str) -> str:
     text = " ".join(body.strip().split())
     user = db.scalar(select(User).where(User.phone_e164 == from_number))
+    billing_service = BillingService(BillingRepository(db))
 
     message = text.upper()
 
@@ -63,7 +67,9 @@ async def process_sms(db: Session, from_number: str, body: str) -> str:
     #
     # Existing user without an active subscription
     #
-    if user.subscription_status != "active":
+    try:
+        billing_context = billing_service.ensure_active_subscription(user)
+    except SubscriptionRequiredError:
         return (
             "TrafficSMS requires an active subscription.\n\n"
             "Visit:\n\n"
@@ -169,13 +175,27 @@ async def process_sms(db: Session, from_number: str, body: str) -> str:
             traffic_request.origin = user.home_location
             traffic_request.destination = user.work_location
 
-        user.monthly_sms_count += 1
-        db.commit()
+        try:
+            usage_summary = billing_service.record_sms_usage(user)
+        except UsageLimitExceededError:
+            return (
+                "You have used all included SMS requests for this billing period.\n\n"
+                "Manage your subscription or upgrade here:\n\n"
+                f"{REGISTRATION_URL}"
+            )
 
-        return await build_traffic_reply(
+        reply = await build_traffic_reply(
             db=db,
             request=traffic_request,
             user=user,
         )
+
+        remaining_suffix = (
+            f"\n\nSMS remaining this period: {usage_summary.remaining_sms}"
+            if billing_context.subscription.plan in {"standard", "unlimited"}
+            else ""
+        )
+
+        return f"{reply}{remaining_suffix}"
 
     return "Unknown command. Text HELP for supported commands."
