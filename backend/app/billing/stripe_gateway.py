@@ -36,8 +36,8 @@ class StripeGateway:
     def create_billing_portal_session(self, **kwargs):
         return self._stripe.billing_portal.Session.create(**kwargs)
 
-    def retrieve_subscription(self, subscription_id: str):
-        return self._stripe.Subscription.retrieve(subscription_id)
+    def retrieve_subscription(self, subscription_id: str, **kwargs):
+        return self._stripe.Subscription.retrieve(subscription_id, **kwargs)
 
     def modify_subscription(self, subscription_id: str, **kwargs):
         return self._stripe.Subscription.modify(subscription_id, **kwargs)

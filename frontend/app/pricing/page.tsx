@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '../../components/auth/AuthProvider';
+import { SubscriptionStatusCard } from '../../components/subscription/SubscriptionStatusCard';
 import {
   ApiError,
   changePlan,
@@ -29,6 +30,14 @@ function formatInterval(interval: string): string {
   }
 
   return interval;
+}
+
+function planFeatures(plan: BillingPlan): string[] {
+  if (plan === 'standard') {
+    return ['60 SMS Requests', 'Nationwide Traffic', 'Saved Routes', 'Account Dashboard'];
+  }
+
+  return ['Unlimited Web Lookups', '200 SMS Included', 'Saved Routes', 'Future Premium Features'];
 }
 
 export default function PricingPage() {
@@ -87,10 +96,9 @@ export default function PricingPage() {
   }, [isAuthenticated, session?.accessToken]);
 
   useEffect(() => {
-    const checkoutState = new URLSearchParams(window.location.search).get('checkout');
-
-    if (checkoutState === 'canceled') {
-      setMessage('Checkout was canceled. Your subscription has not changed.');
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cancelled') === 'true' || params.get('checkout') === 'canceled') {
+      setMessage('Checkout Cancelled. You may subscribe anytime.');
       return;
     }
 
@@ -177,18 +185,38 @@ export default function PricingPage() {
     <section className="hero">
       <div className="card" style={{ marginBottom: '1.25rem' }}>
         <span className="pill">Billing</span>
-        <h1>Choose Your TrafficSMS plan</h1>
+        <h1>Choose your TrafficSMS plan</h1>
         <p className="muted">
-          Every paid account includes unlimited web access, account management, and live SMS quota tracking.
+          Select a monthly subscription to activate your verified account through secure hosted Stripe Checkout.
         </p>
         {subscription ? (
           <p className="muted" style={{ marginTop: '0.75rem' }}>
-            Current plan: <strong>{subscription.plan}</strong> with status <strong>{subscription.status}</strong>.
+            Current plan: <strong>{subscription.plan_label}</strong> with status <strong>{subscription.status_label}</strong>.
           </p>
         ) : null}
         {message ? <p className="statusMessage">{message}</p> : null}
         {error ? <p className="errorMessage">{error}</p> : null}
       </div>
+
+      {isAuthenticated ? (
+        <div style={{ marginBottom: '1.25rem' }}>
+          <SubscriptionStatusCard subscription={subscription} loading={isLoading} />
+        </div>
+      ) : null}
+
+      {!isAuthenticated ? (
+        <div className="card" style={{ marginBottom: '1.25rem' }}>
+          <strong>Sign in to activate your account</strong>
+          <p className="muted">
+            Register, verify your email, and sign in before starting subscription checkout.
+          </p>
+          <div className="actionRow">
+            <Link className="cta" href="/login">
+              Sign in
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid">
         {[standard, unlimited].map((plan) => {
@@ -198,24 +226,17 @@ export default function PricingPage() {
 
           const planKey = plan.plan as BillingPlan;
 
-          return (
-            <div className="card" key={plan.plan}>
-              <h2>{plan.name}</h2>
-              <div className="price">{formatCurrency(plan.price, plan.currency)}</div>
-              <p className="muted">per {formatInterval(plan.interval)}</p>
-              <p className="muted" style={{ minHeight: '3rem' }}>
-                {plan.description ?? 'Production-ready subscription billing through Stripe.'}
-              </p>
+            return (
+              <div className="card" key={plan.plan}>
+                <h2>{plan.plan === 'standard' ? 'Standard' : 'Unlimited'}</h2>
+                <div className="price">{formatCurrency(plan.price, plan.currency)}</div>
+                <p className="muted">/ {formatInterval(plan.interval)}</p>
 
-              <div className="features">
-                Included SMS per month: {plan.sms_allowance}
-                <br />
-                Unlimited dashboard access
-                <br />
-                Subscription management portal
-                <br />
-                Live billing history
-              </div>
+                <div className="features">
+                  {planFeatures(planKey).map((feature) => (
+                    <div key={feature}>✓ {feature}</div>
+                  ))}
+                </div>
 
               <button
                 className="cta"
@@ -234,11 +255,11 @@ export default function PricingPage() {
       <div className="card" style={{ marginTop: '1.25rem' }}>
         <h2>What happens next</h2>
         <div className="features">
-          Stripe Checkout is used for new purchases.
+          Choose a plan.
           <br />
-          Existing subscribers can switch plans from here or manage billing from the dashboard.
+          Complete hosted Stripe Checkout.
           <br />
-          Usage resets automatically each billing period and stays visible in account history.
+          TrafficSMS activates your subscription through Stripe webhooks and refreshes the dashboard automatically.
         </div>
         {!isAuthenticated ? (
           <p className="muted" style={{ marginTop: '1rem' }}>

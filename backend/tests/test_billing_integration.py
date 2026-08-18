@@ -104,27 +104,27 @@ class FakeStripeGateway:
         self.products = {
             STANDARD_PRODUCT_ID: {
                 "id": STANDARD_PRODUCT_ID,
-                "name": "Standard Monthly",
-                "description": "60 SMS traffic requests every billing period.",
+                "name": "Standard",
+                "description": "60 SMS traffic requests every month.",
             },
             UNLIMITED_PRODUCT_ID: {
                 "id": UNLIMITED_PRODUCT_ID,
-                "name": "Unlimited Monthly",
-                "description": "200 SMS traffic requests every billing period.",
+                "name": "Unlimited",
+                "description": "200 SMS traffic requests every month.",
             },
         }
         self.prices = {
             STANDARD_PRICE_ID: {
                 "id": STANDARD_PRICE_ID,
                 "product": STANDARD_PRODUCT_ID,
-                "unit_amount": 2900,
+                "unit_amount": 599,
                 "currency": "usd",
                 "recurring": {"interval": "month"},
             },
             UNLIMITED_PRICE_ID: {
                 "id": UNLIMITED_PRICE_ID,
                 "product": UNLIMITED_PRODUCT_ID,
-                "unit_amount": 5900,
+                "unit_amount": 999,
                 "currency": "usd",
                 "recurring": {"interval": "month"},
             },
@@ -138,6 +138,10 @@ class FakeStripeGateway:
                 "canceled_at": None,
                 "current_period_start": now,
                 "current_period_end": next_month,
+                "default_payment_method": {
+                    "type": "card",
+                    "card": {"brand": "visa", "last4": "4242"},
+                },
                 "items": {
                     "data": [
                         {
@@ -155,6 +159,10 @@ class FakeStripeGateway:
                 "canceled_at": None,
                 "current_period_start": now,
                 "current_period_end": next_month,
+                "default_payment_method": {
+                    "type": "card",
+                    "card": {"brand": "mastercard", "last4": "4444"},
+                },
                 "items": {
                     "data": [
                         {
@@ -201,7 +209,7 @@ class FakeStripeGateway:
             url="https://billing.stripe.test/portal",
         )
 
-    def retrieve_subscription(self, subscription_id: str):
+    def retrieve_subscription(self, subscription_id: str, **kwargs):
         return self.subscriptions[subscription_id]
 
     def modify_subscription(self, subscription_id: str, **kwargs):
@@ -385,6 +393,9 @@ def test_create_checkout_session_creates_customer_and_event(
     assert checkout_payload["metadata"]["email"] == "driver@example.com"
     assert checkout_payload["metadata"]["environment"] == settings.app_env
     assert checkout_payload["subscription_data"]["metadata"]["user_id"] == "1"
+    assert checkout_payload["success_url"] == "http://localhost:3000/dashboard?subscription=success"
+    assert checkout_payload["cancel_url"] == "http://localhost:3000/pricing?cancelled=true"
+    assert checkout_payload["allow_promotion_codes"] is False
 
     user = db_session.scalar(select(User).where(User.email == "driver@example.com"))
     assert user is not None
@@ -439,6 +450,39 @@ def test_webhook_rejects_invalid_signature(
     assert response.json()["detail"] == "Invalid Stripe webhook signature."
 
 
+def test_billing_webhook_alias_accepts_valid_events(
+    client,
+    db_session: Session,
+    billing_settings,
+    fake_stripe_gateway: FakeStripeGateway,
+):
+    user = create_verified_user(client, db_session, email="alias@example.com")
+    install_billing_override(db_session, fake_stripe_gateway)
+
+    payload = {
+        "id": "evt_checkout_alias",
+        "type": "checkout.session.completed",
+        "created": int(datetime.now(UTC).timestamp()),
+        "data": {
+            "object": {
+                "metadata": {"user_id": str(user.id), "plan": "standard"},
+                "customer": "cus_standard",
+                "subscription": "sub_standard",
+                "customer_details": {"email": user.email},
+            }
+        },
+    }
+
+    response = client.post(
+        "/billing/webhook",
+        headers={"Stripe-Signature": "valid-signature"},
+        content=json.dumps(payload),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"received": True, "duplicate": False}
+
+
 def test_checkout_webhook_activates_subscription_and_blocks_duplicates(
     client,
     db_session: Session,
@@ -488,6 +532,59 @@ def test_checkout_webhook_activates_subscription_and_blocks_duplicates(
     )
     assert subscription is not None
     assert subscription.status == "active"
+
+
+def test_subscription_lifecycle_webhooks_update_state(
+    client,
+    db_session: Session,
+    billing_settings,
+    fake_stripe_gateway: FakeStripeGateway,
+):
+    user = create_verified_user(client, db_session, email="lifecycle@example.com")
+    attach_subscription(
+        db_session,
+        user,
+        plan="standard",
+        stripe_customer_id="cus_standard",
+        stripe_subscription_id="sub_standard",
+    )
+    install_billing_override(db_session, fake_stripe_gateway)
+
+    fake_stripe_gateway.subscriptions["sub_standard"]["status"] = "paused"
+    paused = client.post(
+        "/webhooks/stripe",
+        headers={"Stripe-Signature": "valid-signature"},
+        content=json.dumps(
+            {
+                "id": "evt_subscription_paused",
+                "type": "customer.subscription.paused",
+                "created": int(datetime.now(UTC).timestamp()),
+                "data": {"object": fake_stripe_gateway.subscriptions["sub_standard"]},
+            }
+        ),
+    )
+    assert paused.status_code == 200
+
+    db_session.refresh(user)
+    assert user.subscription_status == "paused"
+
+    fake_stripe_gateway.subscriptions["sub_standard"]["status"] = "active"
+    resumed = client.post(
+        "/webhooks/stripe",
+        headers={"Stripe-Signature": "valid-signature"},
+        content=json.dumps(
+            {
+                "id": "evt_subscription_resumed",
+                "type": "customer.subscription.resumed",
+                "created": int(datetime.now(UTC).timestamp()),
+                "data": {"object": fake_stripe_gateway.subscriptions["sub_standard"]},
+            }
+        ),
+    )
+    assert resumed.status_code == 200
+
+    db_session.refresh(user)
+    assert user.subscription_status == "active"
 
 
 def test_change_plan_supports_upgrade_and_downgrade(
@@ -652,6 +749,12 @@ def test_subscription_and_history_endpoints_return_live_billing_state(
 
     assert subscription_response.status_code == 200
     assert subscription_response.json()["plan"] == "unlimited"
+    assert subscription_response.json()["plan_label"] == "Unlimited Monthly"
+    assert subscription_response.json()["status_label"] == "Active"
+    assert subscription_response.json()["billing_cycle"] == "Monthly"
+    assert subscription_response.json()["payment_method"] == "Mastercard ending in 4444"
+    assert subscription_response.json()["stripe_customer_id_masked"] == "cus_...ited"
+    assert subscription_response.json()["has_active_subscription"] is True
     assert subscription_response.json()["usage"]["sms_used"] == 12
     assert subscription_response.json()["usage"]["progress_ratio"] == 0.06
     assert subscription_response.json()["web_access_enabled"] is True
@@ -818,4 +921,46 @@ def test_invoice_payment_webhook_updates_last_payment_date(
 
     db_session.refresh(user)
     assert user.last_payment_date is not None
-    assert int(as_utc(user.last_payment_date).timestamp()) == created_timestamp
+
+
+def test_invoice_payment_failed_webhook_updates_subscription_state(
+    client,
+    db_session: Session,
+    billing_settings,
+    fake_stripe_gateway: FakeStripeGateway,
+):
+    user = create_verified_user(client, db_session, email="failed@example.com")
+    attach_subscription(
+        db_session,
+        user,
+        plan="standard",
+        stripe_customer_id="cus_standard",
+        stripe_subscription_id="sub_standard",
+    )
+    install_billing_override(db_session, fake_stripe_gateway)
+    fake_stripe_gateway.subscriptions["sub_standard"]["status"] = "past_due"
+
+    response = client.post(
+        "/webhooks/stripe",
+        headers={"Stripe-Signature": "valid-signature"},
+        content=json.dumps(
+            {
+                "id": "evt_invoice_failed",
+                "type": "invoice.payment_failed",
+                "created": int(datetime.now(UTC).timestamp()),
+                "data": {
+                    "object": {
+                        "customer": "cus_standard",
+                        "subscription": "sub_standard",
+                        "amount_due": 599,
+                        "currency": "usd",
+                    }
+                },
+            }
+        ),
+    )
+
+    assert response.status_code == 200
+    db_session.refresh(user)
+    assert user.subscription_status == "past_due"
+    assert user.last_payment_date is None

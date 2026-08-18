@@ -110,17 +110,26 @@ export type UsageSummary = {
 
 export type SubscriptionSummary = {
   plan: string;
+  plan_label: string;
   status: string;
+  status_label: string;
+  has_active_subscription: boolean;
+  can_send_sms: boolean;
+  has_unlimited_web_access: boolean;
   stripe_customer_id: string | null;
+  stripe_customer_id_masked: string | null;
   stripe_subscription_id: string | null;
   stripe_price_id: string | null;
   web_access_enabled: boolean;
+  billing_cycle: string;
   cancel_at_period_end: boolean;
+  auto_renew_enabled: boolean;
   current_period_start: string | null;
   current_period_end: string | null;
   renewal_date: string | null;
   grace_period_end: string | null;
   trial_end: string | null;
+  payment_method: string | null;
   email_verified: boolean;
   phone_verified: boolean;
   saved_home_location: string | null;

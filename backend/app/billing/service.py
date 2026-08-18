@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -38,6 +39,8 @@ from app.models.entities import User
 from app.models.subscription import Subscription
 from app.models.usage_tracking import UsageTracking
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class BillingAccessContext:
@@ -65,6 +68,14 @@ class BillingAccessContext:
     @property
     def remaining_sms(self) -> int:
         return max(self.usage.sms_allowance - self.usage.sms_used, 0)
+
+    @property
+    def can_send_sms(self) -> bool:
+        return self.has_active_subscription and self.remaining_sms > 0
+
+    @property
+    def has_unlimited_web_access(self) -> bool:
+        return self.has_active_subscription and self.subscription.plan == "unlimited"
 
 
 class BillingService:
@@ -121,6 +132,59 @@ class BillingService:
         if allowance <= 0:
             return 0.0
         return min(used / allowance, 1.0)
+
+    @staticmethod
+    def _mask_identifier(value: str | None) -> str | None:
+        if not value:
+            return None
+        if len(value) <= 8:
+            return value
+        return f"{value[:4]}...{value[-4:]}"
+
+    @staticmethod
+    def _payment_method_label(payment_method: Any) -> str | None:
+        if not payment_method:
+            return None
+
+        card = BillingService._stripe_value(payment_method, "card")
+        if card:
+            brand = (BillingService._stripe_value(card, "brand", "") or "").strip()
+            last4 = (BillingService._stripe_value(card, "last4", "") or "").strip()
+            if brand and last4:
+                return f"{brand.title()} ending in {last4}"
+            if last4:
+                return f"Card ending in {last4}"
+
+        method_type = BillingService._stripe_value(payment_method, "type")
+        if method_type:
+            return str(method_type).replace("_", " ").title()
+
+        return None
+
+    def _billing_cycle(self, subscription: Subscription) -> str:
+        if subscription.plan == "free":
+            return "No billing cycle"
+        return "Monthly"
+
+    def _subscription_status_label(self, subscription: Subscription) -> str:
+        status = (subscription.status or "inactive").replace("_", " ").strip()
+        return status.title() if status else "Inactive"
+
+    def _extract_payment_method_from_stripe_subscription(
+        self,
+        stripe_subscription: Any,
+    ) -> str | None:
+        payment_method = self._stripe_value(
+            stripe_subscription,
+            "default_payment_method",
+        )
+        if payment_method:
+            return self._payment_method_label(payment_method)
+
+        latest_invoice = self._stripe_value(stripe_subscription, "latest_invoice") or {}
+        payment_intent = self._stripe_value(latest_invoice, "payment_intent") or {}
+        payment_method = self._stripe_value(payment_intent, "payment_method")
+        return self._payment_method_label(payment_method)
 
     def _has_subscription_access(
         self,
@@ -367,20 +431,43 @@ class BillingService:
         subscription = self.get_or_create_subscription(user)
         subscription = self._refresh_access_state(subscription)
         usage = self.build_usage_summary(user)
+        context = self.get_billing_access_context(user)
+        payment_method = None
+
+        if self.stripe_gateway is not None and subscription.stripe_subscription_id:
+            try:
+                stripe_subscription = self.stripe_gateway.retrieve_subscription(
+                    subscription.stripe_subscription_id,
+                    expand=["default_payment_method", "latest_invoice.payment_intent.payment_method"],
+                )
+                payment_method = self._extract_payment_method_from_stripe_subscription(
+                    stripe_subscription
+                )
+            except stripe.error.StripeError:
+                payment_method = None
 
         return SubscriptionSummaryResponse(
             plan=subscription.plan,
+            plan_label=get_plan_definition(subscription.plan).label,
             status=subscription.status,
+            status_label=self._subscription_status_label(subscription),
+            has_active_subscription=context.has_active_subscription,
+            can_send_sms=context.can_send_sms,
+            has_unlimited_web_access=context.has_unlimited_web_access,
             stripe_customer_id=subscription.stripe_customer_id,
+            stripe_customer_id_masked=self._mask_identifier(subscription.stripe_customer_id),
             stripe_subscription_id=subscription.stripe_subscription_id,
             stripe_price_id=subscription.stripe_price_id,
             web_access_enabled=subscription.web_access_enabled,
+            billing_cycle=self._billing_cycle(subscription),
             cancel_at_period_end=subscription.cancel_at_period_end,
+            auto_renew_enabled=not subscription.cancel_at_period_end and subscription.plan != "free",
             current_period_start=self._as_utc(subscription.current_period_start),
             current_period_end=self._as_utc(subscription.current_period_end),
             renewal_date=self._as_utc(subscription.renewal_date),
             grace_period_end=self._as_utc(subscription.grace_period_end),
             trial_end=self._as_utc(subscription.trial_end),
+            payment_method=payment_method,
             email_verified=user.email_verified,
             phone_verified=user.phone_verified,
             saved_home_location=user.home_location,
@@ -406,6 +493,18 @@ class BillingService:
             )
 
         return context
+
+    def has_active_subscription(self, user: User) -> bool:
+        return self.get_billing_access_context(user).has_active_subscription
+
+    def remaining_sms(self, user: User) -> int:
+        return self.get_billing_access_context(user).remaining_sms
+
+    def can_send_sms(self, user: User) -> bool:
+        return self.get_billing_access_context(user).can_send_sms
+
+    def has_unlimited_web_access(self, user: User) -> bool:
+        return self.get_billing_access_context(user).has_unlimited_web_access
 
     def enforce_sms_quota(self, user: User) -> BillingAccessContext:
         context = self.ensure_active_subscription(user)
@@ -509,6 +608,16 @@ class BillingService:
         payload: dict[str, Any] | None = None,
         occurred_at: datetime | None = None,
     ) -> BillingEvent:
+        logger.info(
+            "Billing event recorded event_type=%s source=%s status=%s user_id=%s stripe_event_id=%s amount_cents=%s currency=%s",
+            event_type,
+            source,
+            status,
+            user_id,
+            stripe_event_id,
+            amount_cents,
+            currency,
+        )
         event = self._build_billing_event(
             user_id=user_id,
             subscription_id=subscription_id,
@@ -530,8 +639,24 @@ class BillingService:
         plan: str,
     ) -> CheckoutSessionResponse:
         stripe_gateway = self._require_stripe()
-        price_id = self._get_price_id_for_plan(plan)
+        requested_plan = plan.strip().lower()
+        price_id = self._get_price_id_for_plan(requested_plan)
         customer_id = self.ensure_stripe_customer(user)
+        subscription = self.get_or_create_subscription(user)
+
+        if (
+            subscription.stripe_subscription_id
+            and subscription.plan == requested_plan
+            and self._has_subscription_access(subscription)
+        ):
+            raise InvalidPlanError("This subscription is already active on the requested plan.")
+
+        logger.info(
+            "Checkout session creation requested user_id=%s plan=%s customer_id=%s",
+            user.id,
+            requested_plan,
+            customer_id,
+        )
 
         session = stripe_gateway.create_checkout_session(
             mode="subscription",
@@ -539,14 +664,14 @@ class BillingService:
             client_reference_id=str(user.id),
             metadata={
                 "user_id": str(user.id),
-                "plan": plan.strip().lower(),
+                "plan": requested_plan,
                 "email": user.email,
                 "environment": settings.app_env,
             },
             subscription_data={
                 "metadata": {
                     "user_id": str(user.id),
-                    "plan": plan.strip().lower(),
+                    "plan": requested_plan,
                 }
             },
             line_items=[
@@ -555,12 +680,11 @@ class BillingService:
                     "quantity": 1,
                 }
             ],
-            success_url=f"{settings.frontend_url.rstrip('/')}/dashboard?checkout=success",
-            cancel_url=f"{settings.frontend_url.rstrip('/')}/pricing?checkout=canceled",
-            allow_promotion_codes=True,
+            success_url=f"{settings.frontend_url.rstrip('/')}/dashboard?subscription=success",
+            cancel_url=f"{settings.frontend_url.rstrip('/')}/pricing?cancelled=true",
+            allow_promotion_codes=False,
         )
 
-        subscription = self.get_or_create_subscription(user)
         self._log_billing_event(
             user_id=user.id,
             subscription_id=subscription.id,
@@ -568,8 +692,14 @@ class BillingService:
             event_type="checkout.session.created",
             status=subscription.status,
             source="api",
-            message=f"Checkout session created for plan {plan.strip().lower()}",
+            message=f"Checkout session created for plan {requested_plan}",
             payload={"checkout_session_id": session.id, "price_id": price_id},
+        )
+        logger.info(
+            "Checkout session created user_id=%s plan=%s checkout_session_id=%s",
+            user.id,
+            requested_plan,
+            session.id,
         )
 
         return CheckoutSessionResponse(url=session.url)
@@ -855,16 +985,28 @@ class BillingService:
             settings.stripe_webhook_secret,
         )
         event_id = event["id"]
+        event_type = event["type"]
+
+        logger.info(
+            "Stripe webhook received event_id=%s event_type=%s",
+            event_id,
+            event_type,
+        )
 
         if self.repository.get_billing_event_by_stripe_event_id(event_id) is not None:
+            logger.info(
+                "Stripe webhook duplicate ignored event_id=%s event_type=%s",
+                event_id,
+                event_type,
+            )
             return WebhookReceiptResponse(duplicate=True)
 
-        event_type = event["type"]
         data_object = event["data"]["object"]
         created_at = self._timestamp_to_utc(event.get("created")) or self._now()
         user: User | None = None
         subscription: Subscription | None = None
         message: str | None = None
+        supported = True
 
         if event_type == "checkout.session.completed":
             metadata = data_object.get("metadata", {})
@@ -877,6 +1019,11 @@ class BillingService:
                 email = (data_object.get("customer_details", {}) or {}).get("email")
                 if email:
                     user = self.repository.get_user_by_email(email)
+
+            if user is None:
+                client_reference_id = data_object.get("client_reference_id")
+                if client_reference_id and str(client_reference_id).isdigit():
+                    user = self.repository.get_user_by_id(int(client_reference_id))
 
             if user is not None:
                 user.stripe_customer_id = data_object.get("customer")
@@ -891,16 +1038,29 @@ class BillingService:
                         source="webhook",
                         message="Checkout session completed.",
                     )
+                    logger.info(
+                        "Subscription activated via checkout event_id=%s user_id=%s subscription_id=%s",
+                        event_id,
+                        user.id,
+                        subscription.stripe_subscription_id,
+                    )
                 message = "Checkout session completed."
 
         elif event_type in {
             "customer.subscription.created",
             "customer.subscription.updated",
             "customer.subscription.deleted",
+            "customer.subscription.paused",
+            "customer.subscription.resumed",
         }:
             customer_id = data_object.get("customer")
             if customer_id:
                 subscription = self.repository.get_subscription_by_customer_id(customer_id)
+
+            if subscription is None and data_object.get("id"):
+                subscription = self.repository.get_subscription_by_stripe_subscription_id(
+                    data_object["id"]
+                )
 
             if subscription is not None:
                 user = self.repository.get_user_by_id(subscription.user_id)
@@ -913,12 +1073,17 @@ class BillingService:
                     message=event_type,
                 )
                 message = event_type
+                if event_type in {"customer.subscription.deleted"}:
+                    logger.info(
+                        "Subscription cancelled event_id=%s user_id=%s subscription_id=%s",
+                        event_id,
+                        user.id,
+                        subscription.stripe_subscription_id,
+                    )
 
         elif event_type in {
-            "invoice.paid",
-            "invoice.payment_failed",
             "invoice.payment_succeeded",
-            "customer.subscription.trial_will_end",
+            "invoice.payment_failed",
         }:
             customer_id = data_object.get("customer")
             if customer_id:
@@ -937,10 +1102,31 @@ class BillingService:
                     source="webhook",
                     message=event_type,
                 )
-                if event_type in {"invoice.paid", "invoice.payment_succeeded"}:
+                if event_type == "invoice.payment_succeeded":
                     user.last_payment_date = created_at
                     self.repository.save_user(user)
+                    logger.info(
+                        "Payment succeeded event_id=%s user_id=%s subscription_id=%s",
+                        event_id,
+                        user.id,
+                        subscription.stripe_subscription_id,
+                    )
+                elif event_type == "invoice.payment_failed":
+                    logger.warning(
+                        "Payment failed event_id=%s user_id=%s subscription_id=%s",
+                        event_id,
+                        user.id,
+                        subscription.stripe_subscription_id,
+                    )
             message = event_type
+        else:
+            supported = False
+            message = "Ignored unsupported Stripe event."
+            logger.info(
+                "Stripe webhook ignored unsupported event_id=%s event_type=%s",
+                event_id,
+                event_type,
+            )
 
         if self.repository.get_billing_event_by_stripe_event_id(event_id) is None:
             self._log_billing_event(
@@ -955,8 +1141,16 @@ class BillingService:
                 or data_object.get("amount_total"),
                 currency=(data_object.get("currency") or "").upper() or None,
                 message=message,
-                payload=data_object,
+                payload={"supported": supported, "object": data_object},
                 occurred_at=created_at,
             )
 
+        logger.info(
+            "Stripe webhook processed event_id=%s event_type=%s supported=%s user_id=%s subscription_id=%s",
+            event_id,
+            event_type,
+            supported,
+            user.id if user else None,
+            subscription.stripe_subscription_id if subscription else None,
+        )
         return WebhookReceiptResponse()

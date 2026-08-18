@@ -52,17 +52,26 @@ class SubscriptionSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     plan: str
+    plan_label: str
     status: str
+    status_label: str
+    has_active_subscription: bool
+    can_send_sms: bool
+    has_unlimited_web_access: bool
     stripe_customer_id: str | None
+    stripe_customer_id_masked: str | None
     stripe_subscription_id: str | None
     stripe_price_id: str | None
     web_access_enabled: bool
+    billing_cycle: str
     cancel_at_period_end: bool
+    auto_renew_enabled: bool
     current_period_start: datetime | None
     current_period_end: datetime | None
     renewal_date: datetime | None
     grace_period_end: datetime | None
     trial_end: datetime | None
+    payment_method: str | None
     email_verified: bool
     phone_verified: bool
     saved_home_location: str | None

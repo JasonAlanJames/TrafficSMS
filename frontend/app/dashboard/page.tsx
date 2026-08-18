@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { startTransition, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { useAuth } from '../../components/auth/AuthProvider';
+import { SubscriptionStatusCard } from '../../components/subscription/SubscriptionStatusCard';
 import {
   ApiError,
   cancelSubscription,
@@ -237,9 +238,9 @@ export default function DashboardPage() {
       setSessions(nextSessions);
 
       if (options?.checkoutState === 'success') {
-        setPageMessage('Stripe checkout completed on August 17, 2026. TrafficSMS refreshed your billing state from Stripe.');
+        setPageMessage('Subscription activated. Welcome to TrafficSMS. Your account is now active.');
       } else if (options?.checkoutState === 'canceled') {
-        setPageMessage('Checkout was canceled on August 17, 2026. Your subscription did not change.');
+        setPageMessage('Checkout cancelled. You may subscribe anytime.');
       } else {
         setPageMessage(null);
       }
@@ -265,20 +266,26 @@ export default function DashboardPage() {
     let cancelled = false;
 
     async function load() {
-      const currentCheckoutState =
-        typeof window === 'undefined'
+      const params =
+          typeof window === 'undefined'
           ? null
-          : new URLSearchParams(window.location.search).get('checkout');
+          : new URLSearchParams(window.location.search);
+      const currentCheckoutState =
+        params?.get('subscription') === 'success'
+          ? 'success'
+          : params?.get('checkout') === 'canceled' || params?.get('cancelled') === 'true'
+            ? 'canceled'
+            : null;
 
       await loadAccountData({
         reconcile: currentCheckoutState === 'success',
         checkoutState: currentCheckoutState,
       });
 
-      if (!cancelled && currentCheckoutState) {
-        startTransition(() => {
-          router.replace('/dashboard');
-        });
+        if (!cancelled && currentCheckoutState) {
+          startTransition(() => {
+            router.replace('/dashboard');
+          });
       }
     }
 
@@ -613,7 +620,7 @@ export default function DashboardPage() {
         </div>
         <div className={styles.heroActions}>
           <Link className="cta" href="/pricing">
-            View plans
+            {subscription?.has_active_subscription ? 'Manage plans' : 'View plans'}
           </Link>
           <button className="ghostButton" type="button" onClick={() => void handleReconcileBilling()} disabled={billingAction !== null}>
             {billingAction === 'reconcile' ? 'Reconciling...' : 'Reconcile billing'}
@@ -627,20 +634,34 @@ export default function DashboardPage() {
       <div className={styles.summaryGrid}>
         <article className={`card ${styles.metricCard}`}>
           <span className={styles.metricLabel}>Plan</span>
-          <strong className={styles.metricValue}>{subscription?.plan ?? accountUser.subscription_plan ?? 'free'}</strong>
-          <span className="muted">Status: {subscription?.status ?? accountUser.subscription_status}</span>
+          <strong className={styles.metricValue}>{subscription?.plan_label ?? 'Ready to activate'}</strong>
+          <span className="muted">
+            {subscription?.has_active_subscription ? `Status: ${subscription.status_label}` : 'Choose a subscription to unlock TrafficSMS.'}
+          </span>
         </article>
 
         <article className={`card ${styles.metricCard}`}>
-          <span className={styles.metricLabel}>Remaining SMS</span>
-          <strong className={styles.metricValue}>{subscription?.usage.remaining_sms ?? 0}</strong>
-          <span className="muted">Allowance: {subscription?.usage.sms_allowance ?? 0} per billing period</span>
+          <span className={styles.metricLabel}>Subscription access</span>
+          <strong className={styles.metricValue}>
+            {subscription?.has_active_subscription ? 'Enabled' : 'Required'}
+          </strong>
+          <span className="muted">
+            {subscription?.has_active_subscription
+              ? `${subscription.usage.remaining_sms} SMS remaining this cycle`
+              : 'Select a plan to begin receiving live traffic alerts.'}
+          </span>
         </article>
 
         <article className={`card ${styles.metricCard}`}>
           <span className={styles.metricLabel}>Renewal</span>
-          <strong className={styles.metricValueSmall}>{formatDateTime(subscription?.renewal_date ?? null)}</strong>
-          <span className="muted">Grace ends: {formatDateTime(subscription?.grace_period_end ?? null)}</span>
+          <strong className={styles.metricValueSmall}>
+            {subscription?.has_active_subscription ? formatDateTime(subscription?.renewal_date ?? null) : 'Awaiting activation'}
+          </strong>
+          <span className="muted">
+            {subscription?.has_active_subscription
+              ? `Grace ends: ${formatDateTime(subscription?.grace_period_end ?? null)}`
+              : 'Billing begins only after Stripe checkout completes.'}
+          </span>
         </article>
 
         <article className={`card ${styles.metricCard}`}>
@@ -655,41 +676,11 @@ export default function DashboardPage() {
       </div>
 
       <div className={styles.mainGrid}>
-        <article className={`card ${styles.panel}`}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2>Subscription and usage</h2>
-              <p className="muted">Stripe status, quota tracking, and access state for your current billing cycle.</p>
-            </div>
-          </div>
-
+        <div className={styles.panel}>
           {billingMessage ? <div className="statusMessage">{billingMessage}</div> : null}
           {billingError ? <div className="errorMessage">{billingError}</div> : null}
 
-          <div className={styles.detailGrid}>
-            <div>
-              <span className={styles.detailLabel}>Current period</span>
-              <strong>{formatDateTime(subscription?.current_period_start ?? null)}</strong>
-              <span className="muted">to {formatDateTime(subscription?.current_period_end ?? null)}</span>
-            </div>
-            <div>
-              <span className={styles.detailLabel}>Web access</span>
-              <strong>{subscription?.web_access_enabled ? 'Enabled' : 'Restricted'}</strong>
-              <span className="muted">Trial end: {formatDateTime(subscription?.trial_end ?? null)}</span>
-            </div>
-            <div>
-              <span className={styles.detailLabel}>SMS used</span>
-              <strong>
-                {subscription?.usage.sms_used ?? 0} / {subscription?.usage.sms_allowance ?? 0}
-              </strong>
-              <span className="muted">Progress: {formatPercent(subscription?.usage.progress_ratio ?? 0)}</span>
-            </div>
-            <div>
-              <span className={styles.detailLabel}>Reset timestamp</span>
-              <strong>{formatDateTime(subscription?.usage.reset_at ?? null)}</strong>
-              <span className="muted">Cancel at period end: {subscription?.cancel_at_period_end ? 'Yes' : 'No'}</span>
-            </div>
-          </div>
+          <SubscriptionStatusCard subscription={subscription} loading={isLoading} showActions />
 
           <div className={styles.progressBlock}>
             <div className={styles.progressHeader}>
@@ -704,7 +695,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="actionRow">
-            <button className="cta" type="button" onClick={() => void handleManageSubscription()} disabled={billingAction !== null}>
+            <button
+              className="cta"
+              type="button"
+              onClick={() => void handleManageSubscription()}
+              disabled={billingAction !== null || !subscription?.stripe_customer_id}
+            >
               {billingAction === 'portal' ? 'Opening...' : 'Open Stripe portal'}
             </button>
             <button className="ghostButton" type="button" onClick={() => void handlePlanChange()} disabled={billingAction !== null}>
@@ -718,7 +714,7 @@ export default function DashboardPage() {
               {billingAction === 'cancel' ? 'Saving...' : 'Cancel at period end'}
             </button>
           </div>
-        </article>
+        </div>
 
         <article className={`card ${styles.panel}`}>
           <div className={styles.panelHeader}>

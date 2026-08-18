@@ -9,16 +9,11 @@ from app.billing.schemas import WebhookReceiptResponse
 from app.billing.service import BillingService
 
 router = APIRouter(
-    prefix="/webhooks/stripe",
     tags=["stripe"],
 )
 
 
-@router.post(
-    "",
-    response_model=WebhookReceiptResponse,
-)
-async def stripe_webhook(
+async def _handle_stripe_webhook(
     request: Request,
     stripe_signature: str = Header(alias="Stripe-Signature"),
     service: BillingService = Depends(get_billing_service),
@@ -45,3 +40,35 @@ async def stripe_webhook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid Stripe webhook payload.",
         ) from exc
+
+
+@router.post(
+    "/webhooks/stripe",
+    response_model=WebhookReceiptResponse,
+)
+async def stripe_webhook(
+    request: Request,
+    stripe_signature: str = Header(alias="Stripe-Signature"),
+    service: BillingService = Depends(get_billing_service),
+):
+    return await _handle_stripe_webhook(
+        request=request,
+        stripe_signature=stripe_signature,
+        service=service,
+    )
+
+
+@router.post(
+    "/billing/webhook",
+    response_model=WebhookReceiptResponse,
+)
+async def billing_webhook(
+    request: Request,
+    stripe_signature: str = Header(alias="Stripe-Signature"),
+    service: BillingService = Depends(get_billing_service),
+):
+    return await _handle_stripe_webhook(
+        request=request,
+        stripe_signature=stripe_signature,
+        service=service,
+    )
