@@ -102,10 +102,8 @@ services:
 
     command: >
       sh -c "
-      if [ ! -d .next ]; then
-        npm install &&
-        npm run build;
-      fi &&
+      npm install &&
+      npm run build &&
       npm run start
       "
 
