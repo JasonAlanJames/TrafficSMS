@@ -64,7 +64,6 @@ services:
       uvicorn app.main:app
       --host 0.0.0.0
       --port 8000
-      --reload
       "
 
     volumes:
@@ -103,8 +102,11 @@ services:
 
     command: >
       sh -c "
-      npm install &&
-      npm run dev
+      if [ ! -d .next ]; then
+        npm install &&
+        npm run build;
+      fi &&
+      npm run start
       "
 
     volumes:
