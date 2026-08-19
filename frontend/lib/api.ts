@@ -1,6 +1,11 @@
 // Browser code always talks to a same-origin API path.
 // In development, Next.js rewrites proxy `/api/*` to the backend service.
-const API_BASE_URL = '/api';
+const API_BASE_URL =
+  typeof window === "undefined"
+    ? process.env.INTERNAL_API_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      "https://trafficsms.com/api"
+    : "/api";
 
 export type RegisterPayload = {
   email: string;
