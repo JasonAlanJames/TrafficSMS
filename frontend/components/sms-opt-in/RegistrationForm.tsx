@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { startTransition, useState, type FormEvent } from 'react';
 
 import { ApiError, register } from '../../lib/api';
+import { siteConfig, footerSections } from "../../lib/site";
 import { getPasswordRequirements, getPasswordStrength } from '../../lib/password';
 import { formatPhoneInput, normalizeUsPhoneNumber } from '../../lib/phone';
 import styles from './smsOptIn.module.css';
@@ -97,7 +98,7 @@ function mapRegistrationError(error: unknown): { field?: FieldName; message: str
 
   if (error instanceof TypeError) {
     return {
-      message: 'We could not reach TrafficSMS. Check your connection and try again.',
+      message: `We could not reach ${siteConfig.organization.product}. Check your connection and try again. Check your connection and try again.`,
     };
   }
 
@@ -121,6 +122,20 @@ export default function RegistrationForm() {
   const normalizedPhoneNumber = normalizeUsPhoneNumber(form.phoneNumber);
   const confirmStarted = form.confirmPassword.length > 0;
   const passwordMatch = confirmStarted && form.confirmPassword === form.password;
+
+  const legalSection = footerSections.find(
+    (section) => section.title === "Legal"
+  );
+
+  const legalLinks =
+  legalSection?.links.filter((link) =>
+    [
+      "Privacy Policy",
+      "Terms of Service",
+      "Cookie Policy",
+      "Accessibility",
+    ].includes(link.label)
+  ) ?? [];
 
   function markTouched(field: FieldName) {
     setTouched((current) => ({ ...current, [field]: true }));
@@ -209,7 +224,7 @@ export default function RegistrationForm() {
         <span className={styles.formEyebrow}>Registration Card</span>
         <h2 className={styles.formTitle}>Create your free account</h2>
         <p className={styles.formSubtitle}>
-          Secure your TrafficSMS login now. Saved routes, preferences, and subscription setup come next after email verification.
+          Secure your {siteConfig.organization.product} login now. Saved routes, preferences, and subscription setup come next after email verification.
         </p>
       </div>
 
@@ -354,7 +369,7 @@ export default function RegistrationForm() {
                 aria-describedby={phoneError ? 'phone-error' : 'phone-help'}
               />
               <p className={styles.helperText} id="phone-help">
-                US numbers only for now. You do not need to type +1 manually.
+                Currently supports mobile numbers in {siteConfig.registration.supportedCountries}. You do not need to type +1 manually.
               </p>
               {phoneError ? (
                 <p className={styles.errorText} id="phone-error">
@@ -380,7 +395,7 @@ export default function RegistrationForm() {
                   />
                   <div>
                     <label className={styles.checkboxLabel} htmlFor="sms-consent">
-                      I agree to receive SMS messages from TrafficSMS.
+                      I agree to receive SMS messages from {siteConfig.organization.product}.
                     </label>
                     <div className={styles.requiredTag}>Required to create your account</div>
                   </div>
@@ -393,16 +408,19 @@ export default function RegistrationForm() {
               </div>
 
               <div className={styles.disclosure} id="sms-consent-copy">
-                By checking the box above and creating an account, you consent to receive SMS messages from TrafficSMS related to your account, requested traffic information, service notifications, subscription status, and customer support. Message frequency varies based on your requests and account activity. Message and data rates may apply. Reply STOP to unsubscribe at any time. Reply HELP for assistance. Consent is not a condition of purchase.
+                By checking the box above and creating an account, you consent to receive SMS messages from {siteConfig.organization.product} related to your account, requested traffic information, service notifications, subscription status, and customer support. Message frequency varies based on your requests and account activity. {siteConfig.smsRates} {" "} {siteConfig.smsStop} {" "} {siteConfig.smsHelp} Consent is not a condition of purchase.
               </div>
 
               <div className={styles.legalLinks} aria-label="Legal links">
-                <a className={styles.legalLink} href="https://trafficsms.com/privacy">
-                  Privacy Policy
-                </a>
-                <a className={styles.legalLink} href="https://trafficsms.com/terms">
-                  Terms of Service
-                </a>
+                {legalLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={styles.legalLink}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </div>
 
               <div className={styles.checkboxCard}>
