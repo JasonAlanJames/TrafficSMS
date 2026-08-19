@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -95,8 +96,15 @@ def get_pricing(
 ):
     try:
         return service.build_pricing()
+
     except Exception as exc:
-        raise _translate_billing_error(exc) from exc
+        print("\n================ BILLING DEBUG ================\n")
+        print(f"Exception Type : {type(exc).__name__}")
+        print(f"Exception      : {repr(exc)}")
+        traceback.print_exc()
+        print("\n==============================================\n")
+
+        raise
 
 
 @router.get(
@@ -108,8 +116,15 @@ def get_plans(
 ):
     try:
         return service.build_pricing()
+
     except Exception as exc:
-        raise _translate_billing_error(exc) from exc
+        print("\n================ BILLING DEBUG ================\n")
+        print(f"Exception Type : {type(exc).__name__}")
+        print(f"Exception      : {repr(exc)}")
+        traceback.print_exc()
+        print("\n==============================================\n")
+
+        raise
 
 
 @router.post(
