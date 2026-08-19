@@ -254,13 +254,11 @@ export default function PricingPage() {
 
       <div className="card" style={{ marginTop: '1.25rem' }}>
         <h2>What happens next</h2>
-        <div className="features">
-          Choose a plan.
-          <br />
-          Complete hosted Stripe Checkout.
-          <br />
-          TrafficSMS activates your subscription through Stripe webhooks and refreshes the dashboard automatically.
-        </div>
+        <ol className="features">
+          <li>Choose your subscription plan.</li>
+          <li>Complete your secure checkout.</li>
+          <li>Your subscription is activated immediately after payment, so you can start requesting live traffic updates right away.</li>
+        </ol>
         {!isAuthenticated ? (
           <p className="muted" style={{ marginTop: '1rem' }}>
             You'll need to <Link href="/login">sign in</Link> before checkout can begin.
