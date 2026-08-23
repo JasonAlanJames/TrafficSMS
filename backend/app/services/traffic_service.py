@@ -50,7 +50,7 @@ class TrafficService:
 
         try:
             request = parse_traffic_command(
-                context.normalized_text,
+                context.resolved_text or context.normalized_text,
                 subscriber_id=context.user.id,
             )
         except ValueError:

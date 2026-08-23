@@ -21,15 +21,15 @@ from app.sms.parser import SMSParser
         ("TRAFFIC I15 NORTH", SMSIntent.TRAFFIC_ROUTE),
         ("TRAFFIC HOME TO WORK", SMSIntent.TRAFFIC_ROUTE),
         ("P42 YES", SMSIntent.POLICE_VOTE),
-        ("something else", SMSIntent.UNKNOWN),
+        ("something else", None),
     ],
 )
 def test_intent_resolver_returns_expected_intent(
     message: str,
-    intent: SMSIntent,
+    intent: SMSIntent | None,
 ) -> None:
     """All command routing is owned by the intent resolver."""
 
     parsed = SMSParser().parse(message)
 
-    assert SMSIntentResolver().resolve(parsed) is intent
+    assert SMSIntentResolver().resolve_deterministic(parsed) is intent

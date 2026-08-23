@@ -106,6 +106,21 @@ def test_traffic_service_prepares_routes(
     assert preparation.request.destination == destination
 
 
+def test_traffic_service_uses_resolver_canonical_text(user: User) -> None:
+    """Natural-language resolution reaches the existing route engine as a command."""
+
+    context = _context("How's traffic to LAX?", user)
+    context.resolved_text = "TRAFFIC HOME TO LOS ANGELES INTERNATIONAL AIRPORT"
+
+    preparation = TrafficService().prepare_request(context)
+
+    assert preparation.error_message is None
+    assert preparation.request is not None
+    assert preparation.request.mode == "route"
+    assert preparation.request.origin == "HOME"
+    assert preparation.request.destination == "LOS ANGELES INTERNATIONAL AIRPORT"
+
+
 def test_traffic_service_prepares_saved_commute(user: User) -> None:
     """The original TRAFFIC commute command retains saved home/work behavior."""
 

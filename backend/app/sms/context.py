@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,8 +15,12 @@ from app.models.subscription import Subscription
 from app.sms.intents import SMSIntent
 from app.sms.models import SMSParseResult
 
+if TYPE_CHECKING:
+    from app.sms.conversation import ConversationState
+    from app.sms.providers.provider import AIIntentResult
 
-@dataclass(frozen=True)
+
+@dataclass
 class SMSContext:
     """All request state shared by intent-aware SMS command handlers."""
 
@@ -30,6 +34,10 @@ class SMSContext:
     parsed_arguments: tuple[str, ...]
     timestamp: datetime
     metadata: dict[str, Any] = field(default_factory=dict)
+    resolved_text: str | None = None
+    entities: dict[str, str] = field(default_factory=dict)
+    conversation: ConversationState | None = None
+    ai_result: AIIntentResult | None = None
     intent: SMSIntent | None = None
 
 

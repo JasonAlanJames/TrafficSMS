@@ -90,5 +90,7 @@ async def handle_traffic(context: SMSContext) -> SMSResponse:
             **traffic_result.metadata,
             "remaining_queries": remaining_sms,
             "subscription_level": billing_context.subscription.plan,
+            "intent_source": context.metadata.get("intent_source"),
+            "entities": dict(context.entities),
         },
     )

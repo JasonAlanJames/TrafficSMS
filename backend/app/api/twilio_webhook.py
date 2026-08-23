@@ -45,7 +45,7 @@ async def inbound_sms(
         parsed=parsed,
     )
     sms_response = await sms_dispatcher.dispatch(
-        intent_resolver.resolve(parsed),
+        await intent_resolver.resolve(context),
         context,
     )
     twiml = MessagingResponse()

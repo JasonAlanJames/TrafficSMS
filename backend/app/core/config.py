@@ -307,6 +307,40 @@ class Settings(BaseSettings):
             "traffic_cache_lock_seconds",
         ),
     )
+    llm_intent_confidence_threshold: float = Field(
+        default=0.85,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices(
+            "LLM_INTENT_CONFIDENCE_THRESHOLD",
+            "llm_intent_confidence_threshold",
+        ),
+    )
+    sms_conversation_ttl_seconds: int = Field(
+        default=600,
+        ge=1,
+        validation_alias=AliasChoices(
+            "SMS_CONVERSATION_TTL_SECONDS",
+            "sms_conversation_ttl_seconds",
+        ),
+    )
+    typo_correction_max_edit_distance: int = Field(
+        default=2,
+        ge=0,
+        validation_alias=AliasChoices(
+            "TYPO_CORRECTION_MAX_EDIT_DISTANCE",
+            "typo_correction_max_edit_distance",
+        ),
+    )
+    typo_correction_threshold: float = Field(
+        default=0.80,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices(
+            "TYPO_CORRECTION_THRESHOLD",
+            "typo_correction_threshold",
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -488,6 +522,22 @@ class Settings(BaseSettings):
     @property
     def BILLING_GRACE_PERIOD_DAYS(self) -> int:
         return self.billing_grace_period_days
+
+    @property
+    def LLM_INTENT_CONFIDENCE_THRESHOLD(self) -> float:
+        return self.llm_intent_confidence_threshold
+
+    @property
+    def SMS_CONVERSATION_TTL_SECONDS(self) -> int:
+        return self.sms_conversation_ttl_seconds
+
+    @property
+    def TYPO_CORRECTION_MAX_EDIT_DISTANCE(self) -> int:
+        return self.typo_correction_max_edit_distance
+
+    @property
+    def TYPO_CORRECTION_THRESHOLD(self) -> float:
+        return self.typo_correction_threshold
 
     @property
     def TWILIO_AUTH_TOKEN(self) -> str:

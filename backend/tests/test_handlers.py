@@ -184,5 +184,7 @@ def test_traffic_handler_bridges_to_existing_engine(monkeypatch) -> None:
         "traffic_mode": "area",
         "remaining_queries": 59,
         "subscription_level": "standard",
+        "intent_source": None,
+        "entities": {},
     }
     assert response.message.endswith("SMS remaining this period: 59")
