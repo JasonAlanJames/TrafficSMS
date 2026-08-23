@@ -6,6 +6,14 @@ from app.models.entities import User
 from app.services.google_maps import google_maps
 
 
+_SAVED_LOCATION_ATTRIBUTES = {
+    "HOME": ("home_location", "home"),
+    "WORK": ("work_location", "work"),
+    "GYM": ("gym_location", "gym"),
+    "SCHOOL": ("school_location", "school"),
+}
+
+
 @dataclass
 class ResolvedLocation:
     """
@@ -51,48 +59,20 @@ class LocationResolver:
 
         text = query.strip()
 
-        #
-        # Future:
-        # HOME
-        #
-        if user and text.upper() == "HOME" and user.home_location:
-
-            print("=" * 80)
-            print(f"Original query : {query!r}")
-            print(f"Candidate sent : {candidate!r}")
-            print("=" * 80)
-
-            geo = await google_maps.geocode(
-                candidate,
-            )
-
-            return ResolvedLocation(
-                query=query,
-                formatted_address=geo["formatted_address"],
-                latitude=geo["latitude"],
-                longitude=geo["longitude"],
-                place_id=geo["place_id"],
-                source="home",
-            )
-
-        #
-        # Future:
-        # WORK
-        #
-        if user and text.upper() == "WORK" and user.work_location:
-
-            geo = await google_maps.geocode(
-                user.work_location,
-            )
-
-            return ResolvedLocation(
-                query=query,
-                formatted_address=geo["formatted_address"],
-                latitude=geo["latitude"],
-                longitude=geo["longitude"],
-                place_id=geo["place_id"],
-                source="work",
-            )
+        saved_location = _SAVED_LOCATION_ATTRIBUTES.get(text.upper())
+        if user and saved_location:
+            attribute, source = saved_location
+            candidate = getattr(user, attribute)
+            if candidate:
+                geo = await google_maps.geocode(candidate)
+                return ResolvedLocation(
+                    query=query,
+                    formatted_address=geo["formatted_address"],
+                    latitude=geo["latitude"],
+                    longitude=geo["longitude"],
+                    place_id=geo["place_id"],
+                    source=source,
+                )
 
         #
         # Default city/state assistance.

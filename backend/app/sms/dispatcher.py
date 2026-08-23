@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 
@@ -14,15 +13,15 @@ from app.sms.handlers.subscription import handle_subscribe
 from app.sms.handlers.traffic import handle_traffic
 from app.sms.handlers.unknown import handle_unknown
 from app.sms.intents import SMSIntent
-from app.sms.models import SMSMessageContext, SMSParseResult, SMSResponse
+from app.sms.context import SMSContext
+from app.sms.models import SMSResponse
 
 
-SMSHandler = Callable[[SMSParseResult, SMSMessageContext], Awaitable[SMSResponse]]
-_VOTE_COMMAND_RE = re.compile(r"P\d+")
+SMSHandler = Callable[[SMSContext], Awaitable[SMSResponse]]
 
 
 class SMSDispatcher:
-    """Resolve a parsed message to an intent and invoke its handler."""
+    """Invoke the handler selected by the intent resolver."""
 
     def __init__(self, handlers: Mapping[SMSIntent, SMSHandler] | None = None):
         """Create a dispatcher with optional handler overrides for testing."""
@@ -33,50 +32,13 @@ class SMSDispatcher:
 
     async def dispatch(
         self,
-        parsed: SMSParseResult,
-        context: SMSMessageContext,
+        intent: SMSIntent,
+        context: SMSContext,
     ) -> SMSResponse:
-        """Resolve and process one inbound message."""
+        """Dispatch an already-resolved intent to its configured handler."""
 
-        intent = self.resolve_intent(parsed)
         handler = self._handlers.get(intent, self._handlers[SMSIntent.UNKNOWN])
-        return await handler(parsed, replace(context, intent=intent))
-
-    @staticmethod
-    def resolve_intent(parsed: SMSParseResult) -> SMSIntent:
-        """Determine intent solely from normalized parser output."""
-
-        if not parsed.tokens:
-            return SMSIntent.UNKNOWN
-
-        command = parsed.tokens[0]
-        simple_intents = {
-            "HELP": SMSIntent.HELP,
-            "START": SMSIntent.START,
-            "STOP": SMSIntent.STOP,
-            "SUBSCRIBE": SMSIntent.SUBSCRIBE,
-            "POLICE": SMSIntent.POLICE_REPORT,
-        }
-        if command in simple_intents:
-            return simple_intents[command]
-        if command == "TRAFFIC":
-            return SMSDispatcher._traffic_intent(parsed.arguments)
-        if _VOTE_COMMAND_RE.fullmatch(command) and len(parsed.arguments) == 1:
-            return SMSIntent.POLICE_VOTE
-        return SMSIntent.UNKNOWN
-
-    @staticmethod
-    def _traffic_intent(arguments: tuple[str, ...]) -> SMSIntent:
-        if not arguments:
-            return SMSIntent.TRAFFIC
-
-        destination_intents = {
-            "HOME": SMSIntent.TRAFFIC_HOME,
-            "WORK": SMSIntent.TRAFFIC_WORK,
-            "GYM": SMSIntent.TRAFFIC_GYM,
-            "SCHOOL": SMSIntent.TRAFFIC_SCHOOL,
-        }
-        return destination_intents.get(arguments[0], SMSIntent.TRAFFIC_ROUTE)
+        return await handler(replace(context, intent=intent))
 
     @staticmethod
     def _default_handlers() -> dict[SMSIntent, SMSHandler]:

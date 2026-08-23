@@ -17,6 +17,7 @@ from app.sms.parser import SMSParser
         ("traffic i-15", "TRAFFIC I-15", ("TRAFFIC", "I-15"), ("I-15",)),
         ("traffic i 15", "TRAFFIC I-15", ("TRAFFIC", "I-15"), ("I-15",)),
         ("traffic sr91", "TRAFFIC SR-91", ("TRAFFIC", "SR-91"), ("SR-91",)),
+        ("traffic sr 91", "TRAFFIC SR-91", ("TRAFFIC", "SR-91"), ("SR-91",)),
         ("traffic sr-91", "TRAFFIC SR-91", ("TRAFFIC", "SR-91"), ("SR-91",)),
         (
             "traffic Corona to Anaheim!!!",

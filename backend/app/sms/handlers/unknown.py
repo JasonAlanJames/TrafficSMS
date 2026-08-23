@@ -1,13 +1,11 @@
 """Fallback command handler."""
 
 from app.sms.intents import SMSIntent
-from app.sms.models import SMSMessageContext, SMSParseResult, SMSResponse
+from app.sms.context import SMSContext
+from app.sms.models import SMSResponse
 
 
-async def handle_unknown(
-    _: SMSParseResult,
-    __: SMSMessageContext,
-) -> SMSResponse:
+async def handle_unknown(_: SMSContext) -> SMSResponse:
     """Return the stable fallback response for unsupported commands."""
 
     return SMSResponse(

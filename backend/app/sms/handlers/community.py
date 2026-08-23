@@ -11,8 +11,9 @@ from app.billing.exceptions import SubscriptionRequiredError
 from app.billing.repository import BillingRepository
 from app.billing.service import BillingService
 from app.models.entities import CommunityReport, ReportVote, User
+from app.sms.context import SMSContext
 from app.sms.intents import SMSIntent
-from app.sms.models import SMSMessageContext, SMSParseResult, SMSResponse
+from app.sms.models import SMSResponse
 from app.sms.handlers.subscription import REGISTRATION_URL
 
 
@@ -20,12 +21,6 @@ _POLICE_RE = re.compile(
     r"^POLICE(?:\s+(HIDDEN|OTHER SIDE|VISIBLE|MOBILE CAMERA))?(?:\s+(.+))?$"
 )
 _VOTE_RE = re.compile(r"^P(\d+)\s+(YES|NO|UNSURE)$")
-
-
-def _registered_user(context: SMSMessageContext) -> User | None:
-    return context.db.scalar(
-        select(User).where(User.phone_e164 == context.from_number)
-    )
 
 
 def _subscription_required_response(intent: SMSIntent) -> SMSResponse:
@@ -41,10 +36,10 @@ def _subscription_required_response(intent: SMSIntent) -> SMSResponse:
 
 
 def _ensure_active_subscriber(
-    context: SMSMessageContext,
+    context: SMSContext,
     intent: SMSIntent,
 ) -> tuple[User | None, SMSResponse | None]:
-    user = _registered_user(context)
+    user = context.user
     if user is None:
         return None, SMSResponse(
             success=False,
@@ -67,8 +62,7 @@ def _ensure_active_subscriber(
 
 
 async def handle_police_report(
-    parsed: SMSParseResult,
-    context: SMSMessageContext,
+    context: SMSContext,
 ) -> SMSResponse:
     """Create a time-limited community police report."""
 
@@ -78,7 +72,7 @@ async def handle_police_report(
     if user is None:
         return _subscription_required_response(SMSIntent.POLICE_REPORT)
 
-    match = _POLICE_RE.fullmatch(parsed.normalized_text)
+    match = _POLICE_RE.fullmatch(context.normalized_text)
     if match is None:
         return SMSResponse(
             success=False,
@@ -130,8 +124,7 @@ async def handle_police_report(
 
 
 async def handle_police_vote(
-    parsed: SMSParseResult,
-    context: SMSMessageContext,
+    context: SMSContext,
 ) -> SMSResponse:
     """Record a subscriber's community-report confirmation vote."""
 
@@ -141,7 +134,7 @@ async def handle_police_vote(
     if user is None:
         return _subscription_required_response(SMSIntent.POLICE_VOTE)
 
-    match = _VOTE_RE.fullmatch(parsed.normalized_text)
+    match = _VOTE_RE.fullmatch(context.normalized_text)
     if match is None:
         return SMSResponse(
             success=False,
@@ -159,7 +152,7 @@ async def handle_police_vote(
             message="That report is no longer active.",
         )
 
-    voter_key = f"phone:{context.from_number}"
+    voter_key = f"phone:{context.phone_number}"
     existing = context.db.scalar(
         select(ReportVote).where(
             ReportVote.report_id == report_id,

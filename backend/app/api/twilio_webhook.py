@@ -5,10 +5,17 @@ from twilio.twiml.messaging_response import MessagingResponse
 from twilio.twiml.voice_response import VoiceResponse
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.sms import SMSDispatcher, SMSMessageContext, SMSParser, format_sms_response
+from app.sms import (
+    SMSDispatcher,
+    SMSIntentResolver,
+    SMSParser,
+    build_sms_context,
+    format_sms_response,
+)
 
 router = APIRouter(prefix="/webhooks/twilio", tags=["twilio"])
 sms_parser = SMSParser()
+intent_resolver = SMSIntentResolver()
 sms_dispatcher = SMSDispatcher()
 
 
@@ -32,9 +39,14 @@ async def inbound_sms(
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     parsed = sms_parser.parse(Body)
+    context = build_sms_context(
+        db=db,
+        phone_number=From,
+        parsed=parsed,
+    )
     sms_response = await sms_dispatcher.dispatch(
-        parsed,
-        SMSMessageContext(db=db, from_number=From),
+        intent_resolver.resolve(parsed),
+        context,
     )
     twiml = MessagingResponse()
     twiml.message(format_sms_response(sms_response))

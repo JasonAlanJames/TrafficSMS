@@ -1,13 +1,11 @@
 """HELP command handler."""
 
 from app.sms.intents import SMSIntent
-from app.sms.models import SMSMessageContext, SMSParseResult, SMSResponse
+from app.sms.context import SMSContext
+from app.sms.models import SMSResponse
 
 
-async def handle_help(
-    _: SMSParseResult,
-    __: SMSMessageContext,
-) -> SMSResponse:
+async def handle_help(_: SMSContext) -> SMSResponse:
     """Return the supported public SMS commands."""
 
     return SMSResponse(

@@ -3,41 +3,29 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from typing import cast
 
-import pytest
 from sqlalchemy.orm import Session
 
+from app.sms.context import SMSContext
 from app.sms.dispatcher import SMSDispatcher
 from app.sms.intents import SMSIntent
-from app.sms.models import SMSMessageContext, SMSParseResult, SMSResponse
-from app.sms.parser import SMSParser
+from app.sms.models import SMSResponse
 
 
-@pytest.mark.parametrize(
-    ("message", "intent"),
-    [
-        ("HELP", SMSIntent.HELP),
-        ("START", SMSIntent.START),
-        ("STOP", SMSIntent.STOP),
-        ("TRAFFIC", SMSIntent.TRAFFIC),
-        ("TRAFFIC HOME", SMSIntent.TRAFFIC_HOME),
-        ("TRAFFIC WORK", SMSIntent.TRAFFIC_WORK),
-        ("TRAFFIC GYM", SMSIntent.TRAFFIC_GYM),
-        ("TRAFFIC SCHOOL", SMSIntent.TRAFFIC_SCHOOL),
-        ("TRAFFIC I15 NORTH", SMSIntent.TRAFFIC_ROUTE),
-        ("something else", SMSIntent.UNKNOWN),
-    ],
-)
-def test_dispatcher_resolves_expected_intent(
-    message: str,
-    intent: SMSIntent,
-) -> None:
-    """Routing decisions are centralized in the dispatcher."""
-
-    parsed = SMSParser().parse(message)
-
-    assert SMSDispatcher.resolve_intent(parsed) is intent
+def _context() -> SMSContext:
+    return SMSContext(
+        db=cast(Session, object()),
+        phone_number="+17145550123",
+        user=None,
+        subscription=None,
+        normalized_text="TRAFFIC HOME",
+        raw_text="traffic home",
+        tokens=("TRAFFIC", "HOME"),
+        parsed_arguments=("HOME",),
+        timestamp=datetime.now(UTC),
+    )
 
 
 def test_dispatcher_calls_only_the_resolved_handler() -> None:
@@ -47,8 +35,7 @@ def test_dispatcher_calls_only_the_resolved_handler() -> None:
 
     def handler_for(intent: SMSIntent):
         async def handler(
-            _: SMSParseResult,
-            __: SMSMessageContext,
+            _: SMSContext,
         ) -> SMSResponse:
             called.append(intent)
             return SMSResponse(True, intent, f"handled {intent.value}")
@@ -57,13 +44,9 @@ def test_dispatcher_calls_only_the_resolved_handler() -> None:
 
     handlers = {intent: handler_for(intent) for intent in SMSIntent}
     dispatcher = SMSDispatcher(handlers=handlers)
-    parsed = SMSParser().parse("traffic home")
-    context = SMSMessageContext(
-        db=cast(Session, object()),
-        from_number="+17145550123",
-    )
+    context = _context()
 
-    response = asyncio.run(dispatcher.dispatch(parsed, context))
+    response = asyncio.run(dispatcher.dispatch(SMSIntent.TRAFFIC_HOME, context))
 
     assert called == [SMSIntent.TRAFFIC_HOME]
     assert response.intent is SMSIntent.TRAFFIC_HOME

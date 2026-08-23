@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from app.sms.intents import SMSIntent
 
 
@@ -18,15 +16,6 @@ class SMSParseResult:
     normalized_text: str
     tokens: tuple[str, ...]
     arguments: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class SMSMessageContext:
-    """Request-scoped dependencies required by SMS command handlers."""
-
-    db: Session
-    from_number: str
-    intent: SMSIntent | None = None
 
 
 @dataclass(frozen=True)

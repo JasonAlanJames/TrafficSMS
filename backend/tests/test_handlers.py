@@ -3,31 +3,41 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
 from sqlalchemy.orm import Session
 
 from app.models.entities import User
+from app.models.traffic_request import TrafficRequest
+from app.services.traffic_service import TrafficPreparation, TrafficServiceResult
+from app.sms.context import SMSContext
 from app.sms.handlers.help import handle_help
 from app.sms.handlers.start import handle_start
 from app.sms.handlers.stop import handle_stop
 from app.sms.handlers.traffic import handle_traffic
 from app.sms.handlers.unknown import handle_unknown
 from app.sms.intents import SMSIntent
-from app.sms.models import SMSMessageContext
-from app.sms.parser import SMSParser
 from app.sms.formatter import format_sms_response
 from app.sms.models import SMSResponse
 
 
 def _context(
     db: object | None = None,
+    user: User | None = None,
     intent: SMSIntent | None = None,
-) -> SMSMessageContext:
-    return SMSMessageContext(
+) -> SMSContext:
+    return SMSContext(
         db=cast(Session, db or object()),
-        from_number="+17145550123",
+        phone_number="+17145550123",
+        user=user,
+        subscription=None,
+        normalized_text="TRAFFIC CORONA",
+        raw_text="traffic corona",
+        tokens=("TRAFFIC", "CORONA"),
+        parsed_arguments=("CORONA",),
+        timestamp=datetime.now(UTC),
         intent=intent,
     )
 
@@ -35,7 +45,7 @@ def _context(
 def test_help_handler_returns_command_reference() -> None:
     """HELP exposes the stable public command list."""
 
-    response = asyncio.run(handle_help(SMSParser().parse("HELP"), _context()))
+    response = asyncio.run(handle_help(_context()))
 
     assert response.success is True
     assert response.intent is SMSIntent.HELP
@@ -46,8 +56,8 @@ def test_help_handler_returns_command_reference() -> None:
 def test_start_and_stop_handlers_return_compliance_messages() -> None:
     """START and STOP retain their expected Twilio-facing responses."""
 
-    start = asyncio.run(handle_start(SMSParser().parse("START"), _context()))
-    stop = asyncio.run(handle_stop(SMSParser().parse("STOP"), _context()))
+    start = asyncio.run(handle_start(_context()))
+    stop = asyncio.run(handle_stop(_context()))
 
     assert start.success is True
     assert start.intent is SMSIntent.START
@@ -60,9 +70,7 @@ def test_start_and_stop_handlers_return_compliance_messages() -> None:
 def test_unknown_handler_returns_safe_fallback() -> None:
     """Unknown commands never leak internal details."""
 
-    response = asyncio.run(
-        handle_unknown(SMSParser().parse("nonsense"), _context())
-    )
+    response = asyncio.run(handle_unknown(_context()))
 
     assert response.success is False
     assert response.intent is SMSIntent.UNKNOWN
@@ -118,10 +126,6 @@ def test_traffic_handler_bridges_to_existing_engine(monkeypatch) -> None:
         subscription_status="active",
     )
 
-    class FakeDatabase:
-        def scalar(self, _query):
-            return user
-
     class FakeBillingService:
         def __init__(self, _repository):
             self.context = SimpleNamespace(
@@ -134,31 +138,50 @@ def test_traffic_handler_bridges_to_existing_engine(monkeypatch) -> None:
         def record_sms_usage(self, _user):
             return SimpleNamespace(remaining_sms=59)
 
-    async def fake_build_traffic_reply(**kwargs):
-        assert kwargs["request"].mode == "area"
-        assert kwargs["request"].area == "CORONA"
-        assert kwargs["user"] is user
-        return "Corona traffic is moving normally."
+    class FakeTrafficService:
+        def prepare_request(self, context: SMSContext) -> TrafficPreparation:
+            assert context.user is user
+            return TrafficPreparation(
+                request=TrafficRequest(
+                    mode="area",
+                    area="CORONA",
+                    subscriber_id=user.id,
+                )
+            )
+
+        async def build_reply(
+            self,
+            context: SMSContext,
+            request: TrafficRequest,
+        ) -> TrafficServiceResult:
+            assert context.user is user
+            assert request.mode == "area"
+            assert request.area == "CORONA"
+            return TrafficServiceResult(
+                message="Corona traffic is moving normally.",
+                request=request,
+                metadata={"traffic_mode": "area"},
+            )
 
     monkeypatch.setattr(
         "app.sms.handlers.traffic.BillingService",
         FakeBillingService,
     )
     monkeypatch.setattr(
-        "app.sms.handlers.traffic.build_traffic_reply",
-        fake_build_traffic_reply,
+        "app.sms.handlers.traffic.TrafficService",
+        FakeTrafficService,
     )
 
     response = asyncio.run(
         handle_traffic(
-            SMSParser().parse("traffic corona"),
-            _context(FakeDatabase(), SMSIntent.TRAFFIC_ROUTE),
+            _context(user=user, intent=SMSIntent.TRAFFIC_ROUTE),
         )
     )
 
     assert response.success is True
     assert response.intent is SMSIntent.TRAFFIC_ROUTE
     assert response.metadata == {
+        "traffic_mode": "area",
         "remaining_queries": 59,
         "subscription_level": "standard",
     }
