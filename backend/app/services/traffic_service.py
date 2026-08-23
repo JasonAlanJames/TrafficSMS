@@ -8,6 +8,7 @@ from typing import Any
 
 from app.models.traffic_report import TrafficReport
 from app.models.traffic_request import TrafficRequest
+from app.llm.traffic_summary_service import TrafficSummaryService
 from app.services.traffic import build_traffic_reply
 from app.services.traffic_aggregation_service import TrafficAggregationService
 from app.services.traffic_intelligence_service import TrafficIntelligenceService
@@ -49,9 +50,11 @@ class TrafficService:
         self,
         intelligence_service: TrafficIntelligenceService | None = None,
         aggregation_service: TrafficAggregationService | None = None,
+        summary_service: TrafficSummaryService | None = None,
     ) -> None:
         self._intelligence_service = intelligence_service or TrafficIntelligenceService()
         self._aggregation_service = aggregation_service or TrafficAggregationService()
+        self._summary_service = summary_service or TrafficSummaryService()
 
     def prepare_request(self, context: SMSContext) -> TrafficPreparation:
         """Build a request while validating any saved-location references."""
@@ -108,8 +111,9 @@ class TrafficService:
             generation_duration=datetime.now(UTC) - started_at,
         )
         report = self._intelligence_service.build_report(request, aggregation)
+        deterministic_reply = format_traffic_report(report)
         return TrafficServiceResult(
-            message=format_traffic_report(report),
+            message=await self._summary_service.summarize(report, deterministic_reply),
             request=request,
             report=report,
             metadata={"traffic_mode": request.mode},

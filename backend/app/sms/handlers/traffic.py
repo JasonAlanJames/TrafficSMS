@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.billing.exceptions import SubscriptionRequiredError, UsageLimitExceededError
 from app.billing.repository import BillingRepository
 from app.billing.service import BillingService
+from app.llm.delivery_formatter import DeliveryFormatter
 from app.services.traffic_service import TrafficService
 from app.sms.context import SMSContext
 from app.sms.handlers.subscription import REGISTRATION_URL
 from app.sms.intents import SMSIntent
 from app.sms.models import SMSResponse
+
+
+logger = logging.getLogger(__name__)
 
 
 def _onboarding_response(intent: SMSIntent) -> SMSResponse:
@@ -82,10 +88,22 @@ async def handle_traffic(context: SMSContext) -> SMSResponse:
     if billing_context.subscription.plan in {"standard", "unlimited"}:
         reply = f"{reply}\n\nSMS remaining this period: {remaining_sms}"
 
+    delivery = DeliveryFormatter().prepare(reply)
+    logger.info(
+        "Traffic response delivery decision",
+        extra={
+            "delivery_type": delivery.delivery_type,
+            "character_count": delivery.character_count,
+            "compression_applied": delivery.compression_applied,
+            "truncation_applied": delivery.truncation_applied,
+            "reason": delivery.reason,
+        },
+    )
+
     return SMSResponse(
         success=True,
         intent=intent,
-        message=reply,
+        message=delivery.message,
         metadata={
             **traffic_result.metadata,
             "remaining_queries": remaining_sms,

@@ -341,6 +341,68 @@ class Settings(BaseSettings):
             "typo_correction_threshold",
         ),
     )
+    bedrock_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("BEDROCK_ENABLED", "bedrock_enabled"),
+    )
+    bedrock_region: str = Field(
+        default="us-east-1",
+        validation_alias=AliasChoices("BEDROCK_REGION", "bedrock_region"),
+    )
+    bedrock_model_id: str = Field(
+        default="",
+        validation_alias=AliasChoices("BEDROCK_MODEL_ID", "bedrock_model_id"),
+    )
+    bedrock_timeout_seconds: int = Field(
+        default=3,
+        ge=1,
+        validation_alias=AliasChoices(
+            "BEDROCK_TIMEOUT_SECONDS", "bedrock_timeout_seconds"
+        ),
+    )
+    bedrock_retry_count: int = Field(
+        default=1,
+        ge=0,
+        validation_alias=AliasChoices("BEDROCK_RETRY_COUNT", "bedrock_retry_count"),
+    )
+    bedrock_temperature: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices("BEDROCK_TEMPERATURE", "bedrock_temperature"),
+    )
+    bedrock_max_tokens: int = Field(
+        default=160,
+        ge=1,
+        validation_alias=AliasChoices("BEDROCK_MAX_TOKENS", "bedrock_max_tokens"),
+    )
+    bedrock_top_p: float = Field(
+        default=0.9,
+        gt=0.0,
+        le=1.0,
+        validation_alias=AliasChoices("BEDROCK_TOP_P", "bedrock_top_p"),
+    )
+    sms_character_threshold: int = Field(
+        default=160,
+        ge=1,
+        validation_alias=AliasChoices(
+            "SMS_CHARACTER_THRESHOLD", "sms_character_threshold"
+        ),
+    )
+    mms_character_threshold: int = Field(
+        default=1600,
+        ge=1,
+        validation_alias=AliasChoices(
+            "MMS_CHARACTER_THRESHOLD", "mms_character_threshold"
+        ),
+    )
+    delivery_compression_threshold: int = Field(
+        default=320,
+        ge=1,
+        validation_alias=AliasChoices(
+            "DELIVERY_COMPRESSION_THRESHOLD", "delivery_compression_threshold"
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -538,6 +600,50 @@ class Settings(BaseSettings):
     @property
     def TYPO_CORRECTION_THRESHOLD(self) -> float:
         return self.typo_correction_threshold
+
+    @property
+    def BEDROCK_ENABLED(self) -> bool:
+        return self.bedrock_enabled
+
+    @property
+    def BEDROCK_REGION(self) -> str:
+        return self.bedrock_region
+
+    @property
+    def BEDROCK_MODEL_ID(self) -> str:
+        return self.bedrock_model_id
+
+    @property
+    def BEDROCK_TIMEOUT_SECONDS(self) -> int:
+        return self.bedrock_timeout_seconds
+
+    @property
+    def BEDROCK_RETRY_COUNT(self) -> int:
+        return self.bedrock_retry_count
+
+    @property
+    def BEDROCK_TEMPERATURE(self) -> float:
+        return self.bedrock_temperature
+
+    @property
+    def BEDROCK_MAX_TOKENS(self) -> int:
+        return self.bedrock_max_tokens
+
+    @property
+    def BEDROCK_TOP_P(self) -> float:
+        return self.bedrock_top_p
+
+    @property
+    def SMS_CHARACTER_THRESHOLD(self) -> int:
+        return self.sms_character_threshold
+
+    @property
+    def MMS_CHARACTER_THRESHOLD(self) -> int:
+        return self.mms_character_threshold
+
+    @property
+    def DELIVERY_COMPRESSION_THRESHOLD(self) -> int:
+        return self.delivery_compression_threshold
 
     @property
     def TWILIO_AUTH_TOKEN(self) -> str:
