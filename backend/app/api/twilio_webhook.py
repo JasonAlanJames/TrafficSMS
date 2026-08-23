@@ -5,9 +5,11 @@ from twilio.twiml.messaging_response import MessagingResponse
 from twilio.twiml.voice_response import VoiceResponse
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.services.commands import process_sms
+from app.sms import SMSDispatcher, SMSMessageContext, SMSParser, format_sms_response
 
 router = APIRouter(prefix="/webhooks/twilio", tags=["twilio"])
+sms_parser = SMSParser()
+sms_dispatcher = SMSDispatcher()
 
 
 @router.post("/inbound")
@@ -17,7 +19,9 @@ async def inbound_sms(
     Body: str = Form(...),
     x_twilio_signature: str | None = Header(default=None),
     db: Session = Depends(get_db),
-):
+) -> Response:
+    """Validate an inbound Twilio message and serialize the SMS engine reply."""
+
     settings = get_settings()
     form = dict(await request.form())
     validator = RequestValidator(settings.twilio_auth_token)
@@ -26,12 +30,18 @@ async def inbound_sms(
         not x_twilio_signature or not validator.validate(public_url, form, x_twilio_signature)
     ):
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
-    reply = await process_sms(db, From, Body)
-    twiml = MessagingResponse(); twiml.message(reply)
+
+    parsed = sms_parser.parse(Body)
+    sms_response = await sms_dispatcher.dispatch(
+        parsed,
+        SMSMessageContext(db=db, from_number=From),
+    )
+    twiml = MessagingResponse()
+    twiml.message(format_sms_response(sms_response))
     return Response(content=str(twiml), media_type="application/xml")
 
 @router.post("/voice")
-async def voice_call():
+async def voice_call() -> Response:
     """
     Handle inbound voice calls to the TrafficSMS toll-free number.
     """

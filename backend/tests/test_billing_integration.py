@@ -393,8 +393,13 @@ def test_create_checkout_session_creates_customer_and_event(
     assert checkout_payload["metadata"]["email"] == "driver@example.com"
     assert checkout_payload["metadata"]["environment"] == settings.app_env
     assert checkout_payload["subscription_data"]["metadata"]["user_id"] == "1"
-    assert checkout_payload["success_url"] == "http://localhost:3000/dashboard?subscription=success"
-    assert checkout_payload["cancel_url"] == "http://localhost:3000/pricing?cancelled=true"
+    frontend_url = settings.frontend_url.rstrip("/")
+    assert checkout_payload["success_url"] == (
+        f"{frontend_url}/dashboard?subscription=success"
+    )
+    assert checkout_payload["cancel_url"] == (
+        f"{frontend_url}/pricing?cancelled=true"
+    )
     assert checkout_payload["allow_promotion_codes"] is False
 
     user = db_session.scalar(select(User).where(User.email == "driver@example.com"))

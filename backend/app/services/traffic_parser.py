@@ -19,7 +19,7 @@ ROUTE_RE = re.compile(
 )
 
 CORRIDOR_RE = re.compile(
-    r"^TRAFFIC\s+((?:I-)?\d+)\s+"
+    r"^TRAFFIC\s+((?:(?:I|SR)-)?\d+)\s+"
     r"(NORTH|SOUTH|EAST|WEST|NB|SB|EB|WB)$",
     re.IGNORECASE,
 )
