@@ -88,7 +88,7 @@ async def handle_traffic(context: SMSContext) -> SMSResponse:
     if billing_context.subscription.plan in {"standard", "unlimited"}:
         reply = f"{reply}\n\nSMS remaining this period: {remaining_sms}"
 
-    delivery = DeliveryFormatter().prepare(reply)
+    delivery = DeliveryFormatter().prepare(reply, traffic_result.report)
     logger.info(
         "Traffic response delivery decision",
         extra={

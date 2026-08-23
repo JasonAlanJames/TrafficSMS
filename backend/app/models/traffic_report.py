@@ -8,6 +8,8 @@ from typing import Literal
 
 from app.models.traffic_incident import IncidentType, TrafficIncident
 from app.models.traffic_source import TrafficSource
+from app.models.traffic_freshness import TrafficFreshness
+from app.models.summary_metadata import SummaryMetadata
 
 Severity = Literal["LOW", "MODERATE", "HIGH", "SEVERE"]
 CongestionLevel = Literal["UNKNOWN", "LOW", "MODERATE", "HIGH", "SEVERE"]
@@ -60,3 +62,8 @@ class TrafficReport:
     overall_confidence: float = 0.0
     data_quality: DataQuality = "UNKNOWN"
     generation_duration: timedelta = field(default_factory=timedelta)
+    freshness: TrafficFreshness = field(default_factory=TrafficFreshness)
+    processing_duration_ms: int = 0
+    summary_metadata: SummaryMetadata = field(default_factory=SummaryMetadata)
+    request: str = ""
+    route: str = ""

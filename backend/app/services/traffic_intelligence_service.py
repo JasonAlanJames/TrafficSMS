@@ -16,6 +16,7 @@ from app.models.traffic_report import (
 from app.models.traffic_request import TrafficRequest
 from app.models.traffic_source import TrafficSource
 from app.models.traffic_incident import TrafficIncident
+from app.models.traffic_freshness import TrafficFreshness
 from app.services.traffic_aggregation_service import (
     TrafficAggregation,
     TrafficAggregationService,
@@ -112,6 +113,7 @@ class TrafficIntelligenceService:
         )
         overall_confidence = self.overall_confidence(confidence, source_records)
         report_age = min((source.data_age for source in source_records), default=None)
+        freshness = self.freshness(source_records, report_generated_at, generation_duration)
 
         return TrafficReport(
             location=self._location(request, raw_reply),
@@ -135,6 +137,34 @@ class TrafficIntelligenceService:
             overall_confidence=overall_confidence,
             data_quality=self.data_quality(overall_confidence, source_records, report_age),
             generation_duration=generation_duration,
+            freshness=freshness,
+            processing_duration_ms=int(generation_duration.total_seconds() * 1000),
+            request=request.mode,
+            route=self._location(request, raw_reply),
+        )
+
+    @staticmethod
+    def freshness(
+        sources: tuple[TrafficSource, ...],
+        generated_at: datetime,
+        generation_duration: timedelta,
+    ) -> TrafficFreshness:
+        """Compute report freshness from source data only."""
+
+        if not sources:
+            return TrafficFreshness(
+                generated_at=generated_at,
+                processing_duration_ms=int(generation_duration.total_seconds() * 1000),
+            )
+        ages = tuple(source.data_age for source in sources)
+        average_age = sum((age.total_seconds() for age in ages), 0.0) / len(ages)
+        return TrafficFreshness(
+            oldest_source_age=max(ages),
+            newest_source_age=min(ages),
+            average_source_age=timedelta(seconds=average_age),
+            is_live=any(source.is_live for source in sources),
+            generated_at=generated_at,
+            processing_duration_ms=int(generation_duration.total_seconds() * 1000),
         )
 
     @staticmethod

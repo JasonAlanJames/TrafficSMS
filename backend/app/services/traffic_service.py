@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -112,8 +112,10 @@ class TrafficService:
         )
         report = self._intelligence_service.build_report(request, aggregation)
         deterministic_reply = format_traffic_report(report)
+        summary = await self._summary_service.summarize(report, deterministic_reply)
+        report = replace(report, summary_metadata=self._summary_service.metadata)
         return TrafficServiceResult(
-            message=await self._summary_service.summarize(report, deterministic_reply),
+            message=summary,
             request=request,
             report=report,
             metadata={"traffic_mode": request.mode},

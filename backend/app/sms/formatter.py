@@ -65,6 +65,9 @@ def format_traffic_report(
             alternate_line += f" (saves {best_alternate.savings_minutes} min)"
         lines.append(alternate_line)
 
+    attribution = _attribution_line(report)
+    if attribution:
+        lines.append(attribution)
     freshness = _freshness_line(report)
     if freshness:
         lines.append(freshness)
@@ -82,13 +85,32 @@ def _best_alternate(report: TrafficReport):
 
 
 def _freshness_line(report: TrafficReport) -> str | None:
-    if not report.sources or report.report_age is None:
+    if not report.sources:
         return None
-    age_seconds = int(report.report_age.total_seconds())
-    if age_seconds < 60:
+    age_seconds = int(report.freshness.newest_source_age.total_seconds())
+    if age_seconds < 5:
         return "Updated moments ago."
+    if age_seconds < 60:
+        return f"Updated {age_seconds} seconds ago."
     minutes = max(age_seconds // 60, 1)
     return f"Updated {minutes} min ago."
+
+
+def _attribution_line(report: TrafficReport) -> str | None:
+    providers = tuple(
+        dict.fromkeys(
+            (source.provider_name or source.source_name).strip()
+            for source in report.sources
+            if source.status == "AVAILABLE" and (source.provider_name or source.source_name).strip()
+        )
+    )
+    if not providers:
+        return None
+    if len(providers) == 1:
+        return f"Based on {providers[0]}."
+    if len(providers) == 2:
+        return f"Based on {providers[0]} and {providers[1]}."
+    return f"Based on {', '.join(providers[:-1])} and {providers[-1]}."
 
 
 def _format_message(message: str, maximum_length: int) -> str:
