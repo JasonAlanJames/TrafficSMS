@@ -65,6 +65,10 @@ def format_traffic_report(
             alternate_line += f" (saves {best_alternate.savings_minutes} min)"
         lines.append(alternate_line)
 
+    freshness = _freshness_line(report)
+    if freshness:
+        lines.append(freshness)
+
     return _format_message("\n".join(lines), maximum_length)
 
 
@@ -75,6 +79,16 @@ def _best_alternate(report: TrafficReport):
         report.alternate_routes,
         key=lambda alternate: alternate.savings_minutes or 0,
     )
+
+
+def _freshness_line(report: TrafficReport) -> str | None:
+    if not report.sources or report.report_age is None:
+        return None
+    age_seconds = int(report.report_age.total_seconds())
+    if age_seconds < 60:
+        return "Updated moments ago."
+    minutes = max(age_seconds // 60, 1)
+    return f"Updated {minutes} min ago."
 
 
 def _format_message(message: str, maximum_length: int) -> str:

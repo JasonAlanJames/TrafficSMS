@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from app.models.traffic_report import TrafficReport
 from app.models.traffic_request import TrafficRequest
 from app.services.traffic import build_traffic_reply
+from app.services.traffic_aggregation_service import TrafficAggregationService
 from app.services.traffic_intelligence_service import TrafficIntelligenceService
 from app.services.traffic_parser import parse_traffic_command
 from app.sms.context import SMSContext
@@ -46,8 +48,10 @@ class TrafficService:
     def __init__(
         self,
         intelligence_service: TrafficIntelligenceService | None = None,
+        aggregation_service: TrafficAggregationService | None = None,
     ) -> None:
         self._intelligence_service = intelligence_service or TrafficIntelligenceService()
+        self._aggregation_service = aggregation_service or TrafficAggregationService()
 
     def prepare_request(self, context: SMSContext) -> TrafficPreparation:
         """Build a request while validating any saved-location references."""
@@ -92,12 +96,18 @@ class TrafficService:
     ) -> TrafficServiceResult:
         """Delegate a prepared request to the existing traffic engine."""
 
+        started_at = datetime.now(UTC)
         reply = await build_traffic_reply(
             db=context.db,
             request=request,
             user=context.user,
         )
-        report = self._intelligence_service.build_report(request, reply)
+        aggregation = self._aggregation_service.aggregate(
+            request,
+            reply,
+            generation_duration=datetime.now(UTC) - started_at,
+        )
+        report = self._intelligence_service.build_report(request, aggregation)
         return TrafficServiceResult(
             message=format_traffic_report(report),
             request=request,

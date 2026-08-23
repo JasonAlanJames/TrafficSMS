@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.models.traffic_report import (
     AlternateRoute,
@@ -14,6 +14,12 @@ from app.models.traffic_report import (
     TrafficReport,
 )
 from app.models.traffic_request import TrafficRequest
+from app.models.traffic_source import TrafficSource
+from app.models.traffic_incident import TrafficIncident
+from app.services.traffic_aggregation_service import (
+    TrafficAggregation,
+    TrafficAggregationService,
+)
 
 
 _MINUTES_RE = r"(?P<minutes>\d+)\s*(?:min(?:ute)?s?)"
@@ -43,25 +49,30 @@ class TrafficIntelligenceService:
     def build_report(
         self,
         request: TrafficRequest,
-        engine_reply: str,
+        engine_reply: str | TrafficAggregation,
         *,
         alternate_routes: Iterable[AlternateRoute | Mapping[str, object]] = (),
         generated_at: datetime | None = None,
     ) -> TrafficReport:
         """Normalize an existing engine reply and optional route alternatives."""
 
-        travel_time = self._metric(engine_reply, "travel_time")
-        normal_travel_time = self._metric(engine_reply, "normal_travel_time")
-        delay_minutes = self._metric(engine_reply, "delay_minutes")
+        aggregation = engine_reply if isinstance(engine_reply, TrafficAggregation) else None
+        raw_reply = aggregation.engine_reply if aggregation else engine_reply
+        source_records = aggregation.sources if aggregation else ()
+        aggregated_routes = aggregation.alternate_routes if aggregation else ()
+        report_generated_at = generated_at or (
+            aggregation.generated_at if aggregation else datetime.now(UTC)
+        )
+        generation_duration = (
+            aggregation.generation_duration if aggregation else timedelta()
+        )
+
+        travel_time = self._metric(raw_reply, "travel_time")
+        normal_travel_time = self._metric(raw_reply, "normal_travel_time")
+        delay_minutes = self._metric(raw_reply, "delay_minutes")
         if delay_minutes is None and travel_time is not None and normal_travel_time is not None:
             delay_minutes = max(travel_time - normal_travel_time, 0)
 
-        incidents = self._extract_incidents(engine_reply)
-        alternatives = self._normalize_alternates(
-            alternate_routes,
-            engine_reply=engine_reply,
-            current_travel_time=travel_time,
-        )
         congestion_level = self.congestion_level(
             delay_minutes=delay_minutes,
             travel_time=travel_time,
@@ -70,6 +81,17 @@ class TrafficIntelligenceService:
         severity = self.classify_severity(
             delay_minutes=delay_minutes,
             congestion_level=congestion_level,
+        )
+        incidents = self._extract_incidents(
+            raw_reply,
+            source=source_records[0].source_name if source_records else "Traffic Engine",
+        )
+        alternatives = TrafficAggregationService.rank_alternate_routes(
+            self._normalize_alternates(
+                (*aggregated_routes, *tuple(alternate_routes)),
+                engine_reply=raw_reply,
+                current_travel_time=travel_time,
+            )
         )
         construction = tuple(
             incident for incident in incidents if incident.category == "Construction"
@@ -83,14 +105,16 @@ class TrafficIntelligenceService:
             if incident.category == "Weather"
         )
         confidence = self.confidence_score(
-            location=self._location(request, engine_reply),
+            location=self._location(request, raw_reply),
             travel_time=travel_time,
             normal_travel_time=normal_travel_time,
             delay_minutes=delay_minutes,
         )
+        overall_confidence = self.overall_confidence(confidence, source_records)
+        report_age = min((source.data_age for source in source_records), default=None)
 
         return TrafficReport(
-            location=self._location(request, engine_reply),
+            location=self._location(request, raw_reply),
             travel_time=travel_time,
             normal_travel_time=normal_travel_time,
             delay_minutes=delay_minutes,
@@ -102,11 +126,44 @@ class TrafficIntelligenceService:
             weather_impacts=weather_impacts,
             alternate_routes=alternatives,
             confidence=confidence,
-            generated_at=generated_at or datetime.now(UTC),
+            generated_at=report_generated_at,
             # Preserve established replies where the legacy engine has no
             # structured traffic data to enrich yet.
-            source_summary=engine_reply.strip(),
+            source_summary=raw_reply.strip(),
+            sources=source_records,
+            report_age=report_age,
+            overall_confidence=overall_confidence,
+            data_quality=self.data_quality(overall_confidence, source_records, report_age),
+            generation_duration=generation_duration,
         )
+
+    @staticmethod
+    def overall_confidence(
+        report_confidence: float,
+        sources: tuple[TrafficSource, ...],
+    ) -> float:
+        """Combine report completeness with available source confidence."""
+
+        available = [source.confidence for source in sources if source.status == "AVAILABLE"]
+        if not available:
+            return report_confidence
+        return round((report_confidence + sum(available) / len(available)) / 2, 2)
+
+    @staticmethod
+    def data_quality(
+        overall_confidence: float,
+        sources: tuple[TrafficSource, ...],
+        report_age: timedelta | None,
+    ) -> str:
+        """Classify the usable quality of the report's provenance."""
+
+        if not sources or report_age is None:
+            return "UNKNOWN"
+        if overall_confidence >= 0.85 and report_age <= timedelta(minutes=5):
+            return "HIGH"
+        if overall_confidence >= 0.60 and report_age <= timedelta(minutes=15):
+            return "MEDIUM"
+        return "LOW"
 
     @staticmethod
     def classify_severity(
@@ -217,7 +274,14 @@ class TrafficIntelligenceService:
                     continue
                 travel_time = self._positive_int(alternate.get("travel_time"))
                 savings = self._positive_int(alternate.get("savings_minutes"))
-                candidate = AlternateRoute(name, travel_time, savings)
+                candidate = AlternateRoute(
+                    name,
+                    travel_time,
+                    savings,
+                    confidence=self._normalized_float(alternate.get("confidence"), 0.5),
+                    stability=self._normalized_float(alternate.get("stability"), 0.5),
+                    distance_miles=self._positive_float(alternate.get("distance_miles")),
+                )
             normalized.append(self._with_calculated_savings(candidate, current_travel_time))
 
         for line in engine_reply.splitlines():
@@ -261,21 +325,32 @@ class TrafficIntelligenceService:
             name=alternate.name,
             travel_time=alternate.travel_time,
             savings_minutes=max(current_travel_time - alternate.travel_time, 0),
+            confidence=alternate.confidence,
+            stability=alternate.stability,
+            distance_miles=alternate.distance_miles,
         )
 
-    def _extract_incidents(self, engine_reply: str) -> tuple[TrafficIncidentSummary, ...]:
+    def _extract_incidents(
+        self,
+        engine_reply: str,
+        *,
+        source: str,
+    ) -> tuple[TrafficIncident | TrafficIncidentSummary, ...]:
         lines = [line.strip().lstrip("•").strip() for line in engine_reply.splitlines()]
-        incidents: list[TrafficIncidentSummary] = []
+        incidents: list[TrafficIncident] = []
         for index, line in enumerate(lines):
             category = self._incident_category(line)
             if category is None:
                 continue
             road_name = self._following_road(lines, index)
             incidents.append(
-                TrafficIncidentSummary(
-                    category=category,
+                TrafficIncident(
+                    incident_type=category,
+                    severity=self._incident_severity(category),
+                    location=road_name or "",
                     description=line,
-                    road_name=road_name,
+                    source=source,
+                    confidence=0.8,
                 )
             )
         return tuple(incidents)
@@ -313,9 +388,36 @@ class TrafficIntelligenceService:
         return None
 
     @staticmethod
+    def _incident_severity(category: IncidentCategory) -> Severity:
+        levels: dict[IncidentCategory, Severity] = {
+            "Accident": "HIGH",
+            "Disabled Vehicle": "MODERATE",
+            "Road Hazard": "MODERATE",
+            "Lane Closure": "HIGH",
+            "Construction": "MODERATE",
+            "Police Activity": "MODERATE",
+            "Weather": "MODERATE",
+            "Fire": "SEVERE",
+        }
+        return levels[category]
+
+    @staticmethod
     def _positive_int(value: object) -> int | None:
         try:
             parsed = int(str(value))
         except (TypeError, ValueError):
             return None
         return parsed if parsed >= 0 else None
+
+    @staticmethod
+    def _positive_float(value: object) -> float | None:
+        try:
+            parsed = float(str(value))
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed >= 0 else None
+
+    @staticmethod
+    def _normalized_float(value: object, default: float) -> float:
+        parsed = TrafficIntelligenceService._positive_float(value)
+        return min(parsed, 1.0) if parsed is not None else default

@@ -3,22 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
+from app.models.traffic_incident import IncidentType, TrafficIncident
+from app.models.traffic_source import TrafficSource
 
 Severity = Literal["LOW", "MODERATE", "HIGH", "SEVERE"]
 CongestionLevel = Literal["UNKNOWN", "LOW", "MODERATE", "HIGH", "SEVERE"]
-IncidentCategory = Literal[
-    "Accident",
-    "Disabled Vehicle",
-    "Road Hazard",
-    "Lane Closure",
-    "Construction",
-    "Police Activity",
-    "Weather",
-    "Fire",
-]
+IncidentCategory = IncidentType
+DataQuality = Literal["UNKNOWN", "LOW", "MEDIUM", "HIGH"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +32,9 @@ class AlternateRoute:
     name: str
     travel_time: int | None = None
     savings_minutes: int | None = None
+    confidence: float = 0.5
+    stability: float = 0.5
+    distance_miles: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,11 +47,16 @@ class TrafficReport:
     delay_minutes: int | None = None
     congestion_level: CongestionLevel = "UNKNOWN"
     severity: Severity = "LOW"
-    incidents: tuple[TrafficIncidentSummary, ...] = ()
-    construction: tuple[TrafficIncidentSummary, ...] = ()
-    lane_closures: tuple[TrafficIncidentSummary, ...] = ()
+    incidents: tuple[TrafficIncident | TrafficIncidentSummary, ...] = ()
+    construction: tuple[TrafficIncident | TrafficIncidentSummary, ...] = ()
+    lane_closures: tuple[TrafficIncident | TrafficIncidentSummary, ...] = ()
     weather_impacts: tuple[str, ...] = ()
     alternate_routes: tuple[AlternateRoute, ...] = ()
     confidence: float = 0.0
     generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     source_summary: str | None = None
+    sources: tuple[TrafficSource, ...] = ()
+    report_age: timedelta | None = None
+    overall_confidence: float = 0.0
+    data_quality: DataQuality = "UNKNOWN"
+    generation_duration: timedelta = field(default_factory=timedelta)
