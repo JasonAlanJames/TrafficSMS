@@ -5,10 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.models.traffic_report import TrafficReport
 from app.models.traffic_request import TrafficRequest
 from app.services.traffic import build_traffic_reply
+from app.services.traffic_intelligence_service import TrafficIntelligenceService
 from app.services.traffic_parser import parse_traffic_command
 from app.sms.context import SMSContext
+from app.sms.formatter import format_traffic_report
 
 
 _SAVED_LOCATION_ATTRIBUTES = {
@@ -33,11 +36,18 @@ class TrafficServiceResult:
 
     message: str
     request: TrafficRequest
+    report: TrafficReport | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class TrafficService:
     """Prepare deterministic traffic commands and invoke the traffic engine."""
+
+    def __init__(
+        self,
+        intelligence_service: TrafficIntelligenceService | None = None,
+    ) -> None:
+        self._intelligence_service = intelligence_service or TrafficIntelligenceService()
 
     def prepare_request(self, context: SMSContext) -> TrafficPreparation:
         """Build a request while validating any saved-location references."""
@@ -87,9 +97,11 @@ class TrafficService:
             request=request,
             user=context.user,
         )
+        report = self._intelligence_service.build_report(request, reply)
         return TrafficServiceResult(
-            message=reply,
+            message=format_traffic_report(report),
             request=request,
+            report=report,
             metadata={"traffic_mode": request.mode},
         )
 
