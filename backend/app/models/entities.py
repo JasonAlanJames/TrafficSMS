@@ -141,6 +141,26 @@ class User(Base):
         nullable=True,
     )
 
+    sms_opted_out_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    sms_opt_out_type: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+
+    sms_resumed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    sms_last_help_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     marketing_consent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

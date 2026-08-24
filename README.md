@@ -13,6 +13,7 @@ Current release: `v0.5.0-alpha`
 - Session listing and single-session revocation support
 - Profile, password, email, and phone update endpoints
 - SMS opt-in registration flow for Twilio compliance
+- Production STOP, HELP, and START handling with locally persisted SMS opt-out state
 - Expanded incident and closure coverage from active community reports, enforcement cameras, and official DUI notices
 - Optional AI-assisted traffic summaries with deterministic traffic facts retained as the source of truth
 - Nationwide traffic-quality hardening for city/state, ZIP, and directional U.S. corridor requests
@@ -65,6 +66,10 @@ SMS examples:
 Traffic replies use active internal coverage where available, including accidents, closures, lane closures, construction, hazards, disabled vehicles, weather impacts, police activity, cameras, and official DUI notices. Corridor replies provide a safe no-active-coverage result when no matching internal data exists.
 
 Nationwide examples include `TRAFFIC Phoenix AZ`, `TRAFFIC 10001`, `TRAFFIC I-95 S`, `TRAFFIC US-101 N`, and `TRAFFIC 91 W CA`. Ambiguous or unsupported inputs return concise guidance rather than guessed traffic data.
+
+## SMS Compliance
+
+TrafficSMS processes `STOP`, `STOPALL`, `UNSUBSCRIBE`, `CANCEL`, `END`, `QUIT`, `REVOKE`, `OPTOUT`, `OPT OUT`, `HELP`, `INFO`, `SUPPORT`, `START`, `UNSTOP`, `OPTIN`, `OPT IN`, `YES`, and `IN` before subscription enforcement. STOP records a local opt-out for a matched user; START clears it and records the resume time without replacing the original consent timestamp. Locally opted-out users receive only STOP, HELP, or START compliance responses until they opt in again.
 
 ## Optional AI summaries
 
@@ -149,6 +154,7 @@ TrafficSMS uses PostgreSQL 17, PostGIS, and Alembic. Billing adds these producti
 - `billing_events`
 - `auth_events`
 - `saved_routes`
+- local SMS opt-out state on `users`
 
 The Monday, August 17, 2026 hardening migration also:
 

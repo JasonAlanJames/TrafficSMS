@@ -38,6 +38,20 @@ class SMSDispatcher:
     ) -> SMSResponse:
         """Dispatch an already-resolved intent to its configured handler."""
 
+        if (
+            context.user is not None
+            and context.user.sms_opted_out_at is not None
+            and intent not in {SMSIntent.STOP, SMSIntent.START, SMSIntent.HELP}
+        ):
+            return SMSResponse(
+                success=False,
+                intent=intent,
+                message=(
+                    "TrafficSMS: You are currently opted out. "
+                    "Reply START to resubscribe. Reply HELP for help."
+                ),
+            )
+
         handler = self._handlers.get(intent, self._handlers[SMSIntent.UNKNOWN])
         return await handler(replace(context, intent=intent))
 

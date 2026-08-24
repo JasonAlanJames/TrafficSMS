@@ -86,7 +86,7 @@ Status: In progress
 - [x] Consent timestamp storage
 - [ ] Public deployment for Twilio verification evidence
 - [ ] Toll-free verification resubmission
-- [ ] Production STOP/HELP validation
+- [x] Production STOP/HELP/START validation and local SMS consent hardening
 
 ## Phase 6: Production Deployment
 

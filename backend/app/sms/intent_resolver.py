@@ -32,6 +32,19 @@ _SIMPLE_INTENTS = {
     "SUBSCRIBE": SMSIntent.SUBSCRIBE,
     "POLICE": SMSIntent.POLICE_REPORT,
 }
+_COMPLIANCE_KEYWORDS = {
+    SMSIntent.STOP: frozenset({
+        "STOP", "STOPALL", "STOP ALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT",
+        "REVOKE", "OPTOUT", "OPT OUT",
+    }),
+    SMSIntent.HELP: frozenset({"HELP", "INFO", "SUPPORT"}),
+    SMSIntent.START: frozenset({"START", "YES", "IN", "UNSTOP", "OPTIN", "OPT IN"}),
+}
+_TWILIO_OPT_OUT_TYPES = {
+    "STOP": SMSIntent.STOP,
+    "HELP": SMSIntent.HELP,
+    "START": SMSIntent.START,
+}
 
 
 class SMSIntentResolver:
@@ -73,6 +86,10 @@ class SMSIntentResolver:
 
     async def resolve(self, context: SMSContext) -> SMSIntent:
         """Return the final intent after deterministic and fallback evaluation."""
+
+        compliance_intent = self._resolve_compliance(context)
+        if compliance_intent is not None:
+            return compliance_intent
 
         correction = self._typo_correction_service.correct(context.normalized_text)
         context.metadata["typo_correction_confidence"] = correction.confidence
@@ -155,6 +172,21 @@ class SMSIntentResolver:
                 timestamp=context.timestamp,
             )
         return self._return_unknown(context, ai_confidence=ai_result.confidence)
+
+    def _resolve_compliance(self, context: SMSContext) -> SMSIntent | None:
+        """Resolve carrier commands before correction, routing, or AI fallback."""
+
+        twilio_type = str(context.metadata.get("twilio_opt_out_type", "")).upper()
+        twilio_intent = _TWILIO_OPT_OUT_TYPES.get(twilio_type)
+        if twilio_intent is not None:
+            context.resolved_text = twilio_intent.value.upper()
+            return self._finalize(context, twilio_intent, source="twilio_opt_out_type")
+
+        for intent, keywords in _COMPLIANCE_KEYWORDS.items():
+            if context.normalized_text in keywords:
+                context.resolved_text = intent.value.upper()
+                return self._finalize(context, intent, source="compliance_keyword")
+        return None
 
     def resolve_deterministic(self, parsed: SMSParseResult) -> SMSIntent | None:
         """Return a high-confidence deterministic intent or ``None``."""

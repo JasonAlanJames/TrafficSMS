@@ -49,7 +49,7 @@ def test_help_handler_returns_command_reference() -> None:
 
     assert response.success is True
     assert response.intent is SMSIntent.HELP
-    assert "Available Commands:" in response.message
+    assert "TrafficSMS help:" in response.message
     assert response.metadata == {}
 
 
@@ -61,7 +61,7 @@ def test_start_and_stop_handlers_return_compliance_messages() -> None:
 
     assert start.success is True
     assert start.intent is SMSIntent.START
-    assert "Welcome back" in start.message
+    assert "You are resubscribed" in start.message
     assert stop.success is True
     assert stop.intent is SMSIntent.STOP
     assert "unsubscribed" in stop.message
@@ -112,7 +112,7 @@ def test_webhook_uses_sms_engine_and_returns_twiml(client, monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/xml")
-    assert "Available Commands:" in response.text
+    assert "TrafficSMS help:" in response.text
 
 
 def test_traffic_handler_bridges_to_existing_engine(monkeypatch) -> None:
@@ -120,7 +120,7 @@ def test_traffic_handler_bridges_to_existing_engine(monkeypatch) -> None:
 
     user = User(
         id=1,
-        email="driver@example.com",
+        email="driver@test.trafficsms.com",
         phone_e164="+17145550123",
         subscription_plan="standard",
         subscription_status="active",

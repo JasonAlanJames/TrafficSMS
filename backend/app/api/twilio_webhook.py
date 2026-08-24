@@ -24,6 +24,7 @@ async def inbound_sms(
     request: Request,
     From: str = Form(...),
     Body: str = Form(...),
+    OptOutType: str | None = Form(default=None),
     x_twilio_signature: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -39,10 +40,25 @@ async def inbound_sms(
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     parsed = sms_parser.parse(Body)
+    metadata = {
+        "twilio_opt_out_type": OptOutType.strip().upper() if OptOutType else "",
+        **{
+            metadata_key: str(form[field])
+            for field, metadata_key in {
+                "MessageSid": "twilio_message_sid",
+                "AccountSid": "twilio_account_sid",
+                "To": "twilio_to",
+                "From": "twilio_from",
+                "Body": "twilio_body",
+            }.items()
+            if form.get(field)
+        },
+    }
     context = build_sms_context(
         db=db,
         phone_number=From,
         parsed=parsed,
+        metadata=metadata,
     )
     sms_response = await sms_dispatcher.dispatch(
         await intent_resolver.resolve(context),
