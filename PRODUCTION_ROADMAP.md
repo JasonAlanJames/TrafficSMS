@@ -75,7 +75,7 @@ Status: In progress
 - [x] SMS reply generation pipeline
 - [x] Saved-route automation beyond named profile locations
 - [x] Expanded incident and closure coverage
-- [ ] AI-assisted traffic summarization
+- [x] AI-assisted traffic summarization
 - [ ] Nationwide traffic-quality hardening
 
 ## Phase 5: SMS Platform Hardening

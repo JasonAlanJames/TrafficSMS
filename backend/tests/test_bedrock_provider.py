@@ -82,6 +82,37 @@ def test_bedrock_provider_sends_only_a_rendered_summary_request() -> None:
     assert "TrafficSummaryRequest(" not in call["messages"][0]["content"][0]["text"]
 
 
+def test_bedrock_provider_never_creates_a_client_when_disabled() -> None:
+    """Opt-out prevents any AWS client creation or provider request."""
+
+    called = False
+
+    def client_factory():
+        nonlocal called
+        called = True
+        raise AssertionError("disabled provider must not create a client")
+
+    provider = BedrockProvider(
+        settings=_settings(bedrock_enabled=False), client_factory=client_factory,
+    )
+    with pytest.raises(TrafficSummaryProviderError):
+        asyncio.run(provider.summarize(_request()))
+    assert called is False
+
+
+def test_bedrock_provider_rejects_malformed_responses() -> None:
+    """Malformed provider payloads become safe fallback conditions."""
+
+    class MalformedClient:
+        def converse(self, **_kwargs: object) -> dict[str, object]:
+            return {"output": {}}
+
+    with pytest.raises(TrafficSummaryProviderError):
+        asyncio.run(BedrockProvider(
+            settings=_settings(bedrock_retry_count=0), client=MalformedClient(),
+        ).summarize(_request()))
+
+
 def test_bedrock_provider_retries_transient_failures() -> None:
     """A transient client failure is retried within the configured retry budget."""
 

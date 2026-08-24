@@ -14,6 +14,7 @@ Current release: `v0.5.0-alpha`
 - Profile, password, email, and phone update endpoints
 - SMS opt-in registration flow for Twilio compliance
 - Expanded incident and closure coverage from active community reports, enforcement cameras, and official DUI notices
+- Optional AI-assisted traffic summaries with deterministic traffic facts retained as the source of truth
 - Stripe customer creation, checkout, portal access, plan changes, cancellation, reconciliation, and metadata tagging
 - Subscription state sync through Stripe webhooks with duplicate-event protection, grace-period handling, and trial-ready fields
 - Monthly SMS allowance tracking with atomic usage updates and reset-by-billing-period history
@@ -61,6 +62,10 @@ SMS examples:
 - `DELETE ROUTE WORK`
 
 Traffic replies use active internal coverage where available, including accidents, closures, lane closures, construction, hazards, disabled vehicles, weather impacts, police activity, cameras, and official DUI notices. Corridor replies provide a safe no-active-coverage result when no matching internal data exists.
+
+## Optional AI summaries
+
+TrafficSMS formats deterministic, SMS-safe replies first. Amazon Bedrock may be explicitly enabled to improve wording only after the summary passes grounding checks against those facts. Bedrock is disabled by default and unavailable, invalid, unsafe, or ungrounded output always falls back to the deterministic reply.
 
 ## Repository layout
 

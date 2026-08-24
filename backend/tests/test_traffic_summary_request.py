@@ -70,6 +70,11 @@ def test_summary_request_copies_only_approved_report_facts() -> None:
                 "lanes_affected": None,
             }
         ],
+        "closures": [],
+        "lane_closures": [],
+        "construction": [],
+        "weather_impacts": [],
+        "coverage": [],
         "alternate_routes": [
             {"name": "SR-60", "travel_time": 33, "savings_minutes": 9}
         ],

@@ -42,6 +42,20 @@ class TrafficSummarySource:
 
 
 @dataclass(frozen=True, slots=True)
+class TrafficSummaryCoverage:
+    """Safe, bounded Revision 5.7 coverage facts for optional AI wording."""
+
+    category: str
+    title: str
+    description: str
+    location: str
+    road_name: str | None
+    severity: str
+    confidence: float
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
 class TrafficSummaryRequest:
     """The complete and exclusive data contract for Bedrock summarization."""
 
@@ -57,9 +71,19 @@ class TrafficSummaryRequest:
     provenance: tuple[TrafficSummarySource, ...]
     report_age: timedelta | None
     generated_timestamp: datetime
+    closures: tuple[TrafficSummaryIncident, ...] = ()
+    lane_closures: tuple[TrafficSummaryIncident, ...] = ()
+    construction: tuple[TrafficSummaryIncident, ...] = ()
+    weather_impacts: tuple[str, ...] = ()
+    coverage: tuple[TrafficSummaryCoverage, ...] = ()
 
     @classmethod
-    def from_report(cls, report: "TrafficReport") -> "TrafficSummaryRequest":
+    def from_report(
+        cls,
+        report: "TrafficReport",
+        *,
+        max_input_incidents: int = 5,
+    ) -> "TrafficSummaryRequest":
         """Copy only approved report facts into the provider-facing request."""
 
         return cls(
@@ -77,7 +101,24 @@ class TrafficSummaryRequest:
                     description=incident.description,
                     lanes_affected=getattr(incident, "lanes_affected", None),
                 )
-                for incident in report.incidents
+                for incident in report.incidents[:max_input_incidents]
+            ),
+            closures=cls._summary_incidents(report.closures, max_input_incidents),
+            lane_closures=cls._summary_incidents(report.lane_closures, max_input_incidents),
+            construction=cls._summary_incidents(report.construction, max_input_incidents),
+            weather_impacts=tuple(report.weather_impacts[:max_input_incidents]),
+            coverage=tuple(
+                TrafficSummaryCoverage(
+                    category=item.category,
+                    title=item.title,
+                    description=item.description,
+                    location=item.location_text,
+                    road_name=item.road_name,
+                    severity=item.severity,
+                    confidence=item.confidence,
+                    source=item.source,
+                )
+                for item in report.coverage[:max_input_incidents]
             ),
             alternate_routes=tuple(
                 TrafficSummaryAlternateRoute(
@@ -102,6 +143,22 @@ class TrafficSummaryRequest:
             generated_timestamp=report.generated_at,
         )
 
+    @staticmethod
+    def _summary_incidents(
+        incidents: tuple[object, ...],
+        max_input_incidents: int,
+    ) -> tuple[TrafficSummaryIncident, ...]:
+        return tuple(
+            TrafficSummaryIncident(
+                incident_type=incident.category,
+                severity=getattr(incident, "severity", "LOW"),
+                location=incident.road_name or "",
+                description=incident.description,
+                lanes_affected=getattr(incident, "lanes_affected", None),
+            )
+            for incident in incidents[:max_input_incidents]
+        )
+
     def as_prompt_payload(self) -> dict[str, object]:
         """Return JSON-compatible facts with no application objects or secrets."""
 
@@ -113,6 +170,11 @@ class TrafficSummaryRequest:
             "congestion_level": self.congestion_level,
             "severity": self.severity,
             "incidents": [asdict(incident) for incident in self.incidents],
+            "closures": [asdict(incident) for incident in self.closures],
+            "lane_closures": [asdict(incident) for incident in self.lane_closures],
+            "construction": [asdict(incident) for incident in self.construction],
+            "weather_impacts": list(self.weather_impacts),
+            "coverage": [asdict(item) for item in self.coverage],
             "alternate_routes": [asdict(route) for route in self.alternate_routes],
             "confidence": self.confidence,
             "provenance": [asdict(source) for source in self.provenance],

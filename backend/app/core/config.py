@@ -346,11 +346,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BEDROCK_ENABLED", "bedrock_enabled"),
     )
     bedrock_region: str = Field(
-        default="us-east-1",
+        default="us-west-2",
         validation_alias=AliasChoices("BEDROCK_REGION", "bedrock_region"),
     )
     bedrock_model_id: str = Field(
-        default="",
+        default="amazon.nova-lite-v1:0",
         validation_alias=AliasChoices("BEDROCK_MODEL_ID", "bedrock_model_id"),
     )
     bedrock_timeout_seconds: int = Field(
@@ -372,7 +372,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BEDROCK_TEMPERATURE", "bedrock_temperature"),
     )
     bedrock_max_tokens: int = Field(
-        default=160,
+        default=120,
         ge=1,
         validation_alias=AliasChoices("BEDROCK_MAX_TOKENS", "bedrock_max_tokens"),
     )
@@ -381,6 +381,16 @@ class Settings(BaseSettings):
         gt=0.0,
         le=1.0,
         validation_alias=AliasChoices("BEDROCK_TOP_P", "bedrock_top_p"),
+    )
+    ai_summary_max_input_incidents: int = Field(
+        default=5,
+        ge=1,
+        validation_alias=AliasChoices("AI_SUMMARY_MAX_INPUT_INCIDENTS", "ai_summary_max_input_incidents"),
+    )
+    ai_summary_max_output_chars: int = Field(
+        default=320,
+        ge=1,
+        validation_alias=AliasChoices("AI_SUMMARY_MAX_OUTPUT_CHARS", "ai_summary_max_output_chars"),
     )
     sms_character_threshold: int = Field(
         default=160,

@@ -29,7 +29,9 @@ class TrafficSummaryService:
     ) -> None:
         self._settings = settings or get_settings()
         self._provider = provider
-        self._summary_formatter = summary_formatter or SummaryFormatter()
+        self._summary_formatter = summary_formatter or SummaryFormatter(
+            max_output_chars=getattr(self._settings, "ai_summary_max_output_chars", 320)
+        )
         self._metadata = SummaryMetadata()
 
     @property
@@ -44,10 +46,13 @@ class TrafficSummaryService:
         """Return an optional grounded summary or the deterministic fallback."""
 
         if not self._settings.bedrock_enabled:
-            self._metadata = SummaryMetadata()
+            self._metadata = SummaryMetadata(summary_source="deterministic")
             return deterministic_summary
 
-        request = TrafficSummaryRequest.from_report(report)
+        request = TrafficSummaryRequest.from_report(
+            report,
+            max_input_incidents=getattr(self._settings, "ai_summary_max_input_incidents", 5),
+        )
         provider = self._provider or BedrockProvider(settings=self._settings)
         model_id = getattr(self._settings, "bedrock_model_id", "")
         started_at = perf_counter()
@@ -56,6 +61,7 @@ class TrafficSummaryService:
             summary = self._summary_formatter.format(raw_summary, request)
             if summary is None:
                 self._metadata = SummaryMetadata(
+                    summary_attempted=True,
                     provider="Bedrock",
                     model=model_id,
                     fallback_used=True,
@@ -66,10 +72,10 @@ class TrafficSummaryService:
                 )
                 logger.warning(
                     "Bedrock traffic summary rejected by deterministic guardrails",
-                    extra={"location": report.location},
                 )
                 return deterministic_summary
             self._metadata = SummaryMetadata(
+                summary_attempted=True,
                 summary_used=True,
                 provider="Bedrock",
                 model=model_id,
@@ -80,19 +86,22 @@ class TrafficSummaryService:
             )
             logger.info(
                 "Bedrock traffic summary accepted",
-                extra={"location": report.location, "report_confidence": report.confidence},
+                extra={"report_confidence": report.confidence},
             )
             return summary
         except Exception as exc:
             self._metadata = SummaryMetadata(
+                summary_attempted=True,
                 provider="Bedrock",
                 model=model_id,
                 fallback_used=True,
                 fallback_reason=type(exc).__name__,
+                grounding_verified=False,
+                hallucination_check_passed=False,
                 generation_latency_ms=int((perf_counter() - started_at) * 1000),
             )
             logger.warning(
                 "Bedrock traffic summary unavailable; using deterministic fallback",
-                extra={"error": type(exc).__name__, "location": report.location},
+                extra={"error": type(exc).__name__},
             )
             return deterministic_summary

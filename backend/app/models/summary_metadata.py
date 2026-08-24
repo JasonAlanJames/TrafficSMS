@@ -12,6 +12,7 @@ SummarySource = Literal["deterministic", "bedrock"]
 
 @dataclass(frozen=True, slots=True)
 class SummaryMetadata:
+    summary_attempted: bool = False
     summary_used: bool = False
     provider: str = ""
     model: str = ""
