@@ -8,6 +8,11 @@ from typing import Any
 
 from app.models.traffic_report import TrafficReport
 from app.models.traffic_request import TrafficRequest
+from app.models.traffic_provider_result import TrafficProviderResult
+from app.cache.cache_keys import traffic as traffic_cache_key
+from app.cache.cache_manager import CacheManager
+from app.cache.cache_ttl import traffic as traffic_cache_ttl
+from app.providers.provider_manager import TrafficProviderManager
 from app.llm.traffic_summary_service import TrafficSummaryService
 from app.services.traffic import build_traffic_reply
 from app.services.traffic_aggregation_service import TrafficAggregationService
@@ -51,10 +56,41 @@ class TrafficService:
         intelligence_service: TrafficIntelligenceService | None = None,
         aggregation_service: TrafficAggregationService | None = None,
         summary_service: TrafficSummaryService | None = None,
+        provider_manager: TrafficProviderManager | None = None,
+        cache_manager: CacheManager | None = None,
     ) -> None:
         self._intelligence_service = intelligence_service or TrafficIntelligenceService()
         self._aggregation_service = aggregation_service or TrafficAggregationService()
         self._summary_service = summary_service or TrafficSummaryService()
+        self._provider_manager = provider_manager or TrafficProviderManager()
+        self._cache_manager = cache_manager or CacheManager()
+
+    async def lookup_provider_result(
+        self,
+        request: TrafficRequest,
+        *,
+        state: str = "",
+    ) -> TrafficProviderResult:
+        """Use request cache above the existing provider-manager cache."""
+
+        target = request.destination or request.area or request.corridor or "commute"
+        key = traffic_cache_key(state or "default", target)
+        cached = self._cache_manager.get_provider_result(key)
+        if cached is not None:
+            return cached
+
+        if request.mode in {"route", "commute"}:
+            result = await self._provider_manager.request(
+                "route", request.origin or "", request.destination or "", state=state
+            )
+        elif request.mode == "corridor":
+            result = await self._provider_manager.request(
+                "corridor", request.corridor or "", request.direction or "", state=state
+            )
+        else:
+            result = await self._provider_manager.request("area", request.area or "", state=state)
+        self._cache_manager.set_provider_result(key, result, traffic_cache_ttl())
+        return result
 
     def prepare_request(self, context: SMSContext) -> TrafficPreparation:
         """Build a request while validating any saved-location references."""
