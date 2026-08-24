@@ -74,7 +74,7 @@ Status: In progress
 - [x] Community reporting schema
 - [x] SMS reply generation pipeline
 - [x] Saved-route automation beyond named profile locations
-- [ ] Expanded incident and closure coverage
+- [x] Expanded incident and closure coverage
 - [ ] AI-assisted traffic summarization
 - [ ] Nationwide traffic-quality hardening
 

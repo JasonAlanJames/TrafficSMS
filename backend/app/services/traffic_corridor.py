@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.models.entities import User
 from app.models.traffic_request import TrafficRequest
+from app.services.incident_coverage_service import incident_coverage_service
 
 
 async def build_corridor_reply(
@@ -33,32 +34,20 @@ async def build_corridor_reply(
             "TRAFFIC 91 WEST"
         )
 
-    #
-    # Placeholder until live corridor providers
-    # (CHP, Caltrans, Google Traffic, etc.)
-    # are integrated.
-    #
-
     lines = [
         "TrafficSMS",
         "",
         f"{request.corridor} {request.direction}",
         "",
-        "Live corridor intelligence",
-        "coming soon.",
-        "",
-        "Planned information:",
-        "",
-        "• Average speed",
-        "• Travel delays",
-        "• CHP incidents",
-        "• Lane closures",
-        "• Construction",
-        "• Community police reports",
-        "• Enforcement cameras",
-        "• Weather impacts",
-        "",
-        "Drive safely.",
     ]
+
+    coverage = await incident_coverage_service.collect(db, request)
+    if not coverage:
+        lines.append("No active community incidents or closures found for this corridor yet.")
+    else:
+        for item in coverage[:4]:
+            location = item.road_name or item.location_text
+            lines.append(f"• {item.title}: {location}" if location else f"• {item.title}")
+    lines.extend(("", "Drive safely."))
 
     return "\n".join(lines)

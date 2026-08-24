@@ -10,6 +10,7 @@ from app.models.traffic_incident import IncidentType, TrafficIncident
 from app.models.traffic_source import TrafficSource
 from app.models.traffic_freshness import TrafficFreshness
 from app.models.summary_metadata import SummaryMetadata
+from app.models.incident_coverage import IncidentCoverageItem
 
 Severity = Literal["LOW", "MODERATE", "HIGH", "SEVERE"]
 CongestionLevel = Literal["UNKNOWN", "LOW", "MODERATE", "HIGH", "SEVERE"]
@@ -50,9 +51,11 @@ class TrafficReport:
     congestion_level: CongestionLevel = "UNKNOWN"
     severity: Severity = "LOW"
     incidents: tuple[TrafficIncident | TrafficIncidentSummary, ...] = ()
+    closures: tuple[TrafficIncident | TrafficIncidentSummary, ...] = ()
     construction: tuple[TrafficIncident | TrafficIncidentSummary, ...] = ()
     lane_closures: tuple[TrafficIncident | TrafficIncidentSummary, ...] = ()
     weather_impacts: tuple[str, ...] = ()
+    coverage: tuple[IncidentCoverageItem, ...] = ()
     alternate_routes: tuple[AlternateRoute, ...] = ()
     confidence: float = 0.0
     generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))

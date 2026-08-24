@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.entities import (
@@ -47,6 +47,37 @@ class CommunityProvider:
             )
             .all()
         )
+
+    async def get_active_reports(self, db: Session, terms: tuple[str, ...], limit: int = 12) -> list[CommunityReport]:
+        statement = select(CommunityReport).where(CommunityReport.expires_at > self._naive_utc_now())
+        if terms:
+            statement = statement.where(or_(*[
+                CommunityReport.area_label.ilike(f"%{term}%") | CommunityReport.road_name.ilike(f"%{term}%")
+                for term in terms
+            ]))
+        return list(db.scalars(statement.order_by(CommunityReport.reported_at.desc()).limit(limit)))
+
+    async def get_active_cameras(self, db: Session, terms: tuple[str, ...], limit: int = 8) -> list[EnforcementCamera]:
+        statement = select(EnforcementCamera).where(EnforcementCamera.active.is_(True))
+        if terms:
+            statement = statement.where(or_(*[
+                EnforcementCamera.area_label.ilike(f"%{term}%") | EnforcementCamera.road_name.ilike(f"%{term}%")
+                for term in terms
+            ]))
+        return list(db.scalars(statement.limit(limit)))
+
+    async def get_active_dui_notices(self, db: Session, terms: tuple[str, ...], limit: int = 5) -> list[DuiNotice]:
+        now = self._naive_utc_now()
+        statement = select(DuiNotice).where(DuiNotice.starts_at <= now, DuiNotice.ends_at >= now)
+        if terms:
+            statement = statement.where(or_(*[DuiNotice.area_label.ilike(f"%{term}%") for term in terms]))
+        return list(db.scalars(statement.limit(limit)))
+
+    @staticmethod
+    def _naive_utc_now() -> datetime:
+        """Match existing naive UTC database columns without deprecated APIs."""
+
+        return datetime.now(UTC).replace(tzinfo=None)
 
     async def get_cameras(
         self,

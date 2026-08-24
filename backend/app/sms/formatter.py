@@ -31,9 +31,11 @@ def format_traffic_report(
         (
             report.travel_time is not None,
             report.incidents,
+            report.closures,
             report.construction,
             report.lane_closures,
             report.weather_impacts,
+            report.coverage,
             report.alternate_routes,
         )
     )
@@ -56,6 +58,8 @@ def format_traffic_report(
             detail += f" on {major_incident.road_name}"
         lines.append(f"Incident: {detail}")
 
+    _append_coverage_lines(lines, report)
+
     best_alternate = _best_alternate(report)
     if best_alternate:
         alternate_line = f"Alt: {best_alternate.name}"
@@ -73,6 +77,34 @@ def format_traffic_report(
         lines.append(freshness)
 
     return _format_message("\n".join(lines), maximum_length)
+
+
+def _append_coverage_lines(lines: list[str], report: TrafficReport) -> None:
+    """Add short, safety-focused coverage sections without exposing internal IDs."""
+
+    if not report.coverage:
+        return
+    labels = {
+        "closure": "Closure", "lane_closure": "Lane closure", "construction": "Construction",
+        "weather": "Weather", "camera": "Cameras", "dui_notice": "Safety notice",
+    }
+    shown: set[str] = set()
+    for item in report.coverage:
+        if item.category in {"accident", "hazard", "disabled_vehicle", "police", "general"}:
+            continue
+        label = labels.get(item.category)
+        if label is None or label in shown:
+            continue
+        location = item.road_name or item.location_text
+        if item.category == "dui_notice":
+            lines.append(f"{label}: Official notice in {location}.")
+        elif location:
+            lines.append(f"{label}: {location}")
+        else:
+            lines.append(f"{label}: {item.title}")
+        shown.add(label)
+        if len(shown) == 3:
+            break
 
 
 def _best_alternate(report: TrafficReport):

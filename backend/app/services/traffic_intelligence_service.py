@@ -17,6 +17,7 @@ from app.models.traffic_request import TrafficRequest
 from app.models.traffic_source import TrafficSource
 from app.models.traffic_incident import TrafficIncident
 from app.models.traffic_freshness import TrafficFreshness
+from app.models.incident_coverage import IncidentCoverageItem
 from app.services.traffic_aggregation_service import (
     TrafficAggregation,
     TrafficAggregationService,
@@ -87,6 +88,11 @@ class TrafficIntelligenceService:
             raw_reply,
             source=source_records[0].source_name if source_records else "Traffic Engine",
         )
+        coverage = aggregation.coverage if aggregation else ()
+        incidents = self._merge_incidents(incidents, coverage)
+        closures = tuple(
+            incident for incident in incidents if incident.category in {"Lane Closure", "Road Closure"}
+        )
         alternatives = TrafficAggregationService.rank_alternate_routes(
             self._normalize_alternates(
                 (*aggregated_routes, *tuple(alternate_routes)),
@@ -123,9 +129,11 @@ class TrafficIntelligenceService:
             congestion_level=congestion_level,
             severity=severity,
             incidents=incidents,
+            closures=closures,
             construction=construction,
             lane_closures=lane_closures,
             weather_impacts=weather_impacts,
+            coverage=coverage,
             alternate_routes=alternatives,
             confidence=confidence,
             generated_at=report_generated_at,
@@ -385,6 +393,35 @@ class TrafficIntelligenceService:
             )
         return tuple(incidents)
 
+    def _merge_incidents(
+        self,
+        existing: tuple[TrafficIncident | TrafficIncidentSummary, ...],
+        coverage: tuple[IncidentCoverageItem, ...],
+    ) -> tuple[TrafficIncident | TrafficIncidentSummary, ...]:
+        """Merge typed coverage without duplicating facts parsed from engine text."""
+
+        normalized = list(existing)
+        seen = {
+            (incident.category, incident.road_name or "", incident.description)
+            for incident in normalized
+        }
+        category_map = {
+            "accident": "Accident", "closure": "Road Closure", "lane_closure": "Lane Closure",
+            "construction": "Construction", "hazard": "Road Hazard", "disabled_vehicle": "Disabled Vehicle",
+            "weather": "Weather", "police": "Police Activity", "camera": "Enforcement Camera",
+            "dui_notice": "Official DUI Notice", "general": "General",
+        }
+        for item in coverage:
+            category = category_map[item.category]
+            candidate = TrafficIncidentSummary(
+                category=category, description=item.description, road_name=item.road_name or item.location_text,
+            )
+            key = (candidate.category, candidate.road_name or "", candidate.description)
+            if key not in seen:
+                normalized.append(candidate)
+                seen.add(key)
+        return tuple(normalized)
+
     @staticmethod
     def _following_road(lines: list[str], index: int) -> str | None:
         if index + 1 >= len(lines):
@@ -407,6 +444,8 @@ class TrafficIntelligenceService:
             return "Road Hazard"
         if any(term in value for term in ("lane closure", "lane closed")):
             return "Lane Closure"
+        if any(term in value for term in ("road closure", "full closure", "closed until")):
+            return "Road Closure"
         if any(term in value for term in ("construction", "roadwork", "work zone")):
             return "Construction"
         if any(term in value for term in ("police", "chp", "enforcement")):
@@ -424,10 +463,14 @@ class TrafficIntelligenceService:
             "Disabled Vehicle": "MODERATE",
             "Road Hazard": "MODERATE",
             "Lane Closure": "HIGH",
+            "Road Closure": "HIGH",
             "Construction": "MODERATE",
             "Police Activity": "MODERATE",
             "Weather": "MODERATE",
             "Fire": "SEVERE",
+            "Enforcement Camera": "LOW",
+            "Official DUI Notice": "MODERATE",
+            "General": "LOW",
         }
         return levels[category]
 

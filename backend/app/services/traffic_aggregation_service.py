@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from app.models.traffic_report import AlternateRoute
 from app.models.traffic_request import TrafficRequest
 from app.models.traffic_source import TrafficSource
+from app.models.incident_coverage import IncidentCoverageItem
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +20,7 @@ class TrafficAggregation:
     engine_reply: str
     sources: tuple[TrafficSource, ...]
     alternate_routes: tuple[AlternateRoute, ...] = ()
+    coverage: tuple[IncidentCoverageItem, ...] = ()
     generated_at: datetime = field(
         default_factory=lambda: datetime.min.replace(tzinfo=UTC)
     )
@@ -35,6 +37,7 @@ class TrafficAggregationService:
         *,
         sources: Iterable[TrafficSource] = (),
         alternate_routes: Iterable[AlternateRoute] = (),
+        coverage: Iterable[IncidentCoverageItem] = (),
         generated_at: datetime | None = None,
         generation_duration: timedelta | None = None,
     ) -> TrafficAggregation:
@@ -56,6 +59,7 @@ class TrafficAggregationService:
             engine_reply=engine_reply,
             sources=(primary_source, *tuple(sources)),
             alternate_routes=self.rank_alternate_routes(alternate_routes),
+            coverage=tuple(coverage),
             generated_at=completed_at,
             generation_duration=duration,
         )

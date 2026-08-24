@@ -12,10 +12,14 @@ IncidentType = Literal[
     "Disabled Vehicle",
     "Road Hazard",
     "Lane Closure",
+    "Road Closure",
     "Construction",
     "Police Activity",
     "Weather",
     "Fire",
+    "Enforcement Camera",
+    "Official DUI Notice",
+    "General",
 ]
 IncidentSeverity = Literal["LOW", "MODERATE", "HIGH", "SEVERE"]
 

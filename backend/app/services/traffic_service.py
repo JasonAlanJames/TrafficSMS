@@ -17,6 +17,7 @@ from app.llm.traffic_summary_service import TrafficSummaryService
 from app.services.traffic import build_traffic_reply
 from app.services.traffic_aggregation_service import TrafficAggregationService
 from app.services.traffic_intelligence_service import TrafficIntelligenceService
+from app.services.incident_coverage_service import IncidentCoverageService
 from app.services.traffic_parser import parse_traffic_command
 from app.sms.context import SMSContext
 from app.sms.formatter import format_traffic_report
@@ -58,12 +59,14 @@ class TrafficService:
         summary_service: TrafficSummaryService | None = None,
         provider_manager: TrafficProviderManager | None = None,
         cache_manager: CacheManager | None = None,
+        incident_coverage_service: IncidentCoverageService | None = None,
     ) -> None:
         self._intelligence_service = intelligence_service or TrafficIntelligenceService()
         self._aggregation_service = aggregation_service or TrafficAggregationService()
         self._summary_service = summary_service or TrafficSummaryService()
         self._provider_manager = provider_manager or TrafficProviderManager()
         self._cache_manager = cache_manager or CacheManager()
+        self._incident_coverage_service = incident_coverage_service or IncidentCoverageService()
 
     async def lookup_provider_result(
         self,
@@ -141,9 +144,11 @@ class TrafficService:
             request=request,
             user=context.user,
         )
+        coverage = await self._incident_coverage_service.collect(context.db, request)
         aggregation = self._aggregation_service.aggregate(
             request,
             reply,
+            coverage=coverage,
             generation_duration=datetime.now(UTC) - started_at,
         )
         report = self._intelligence_service.build_report(request, aggregation)
