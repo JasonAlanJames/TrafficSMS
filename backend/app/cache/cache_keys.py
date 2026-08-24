@@ -1,0 +1,5 @@
+def traffic(state: str, location: str) -> str: return f"traffic:{state.lower()}:{location.lower()}"
+def route(origin: str, destination: str) -> str: return f"route:{origin.lower()}:{destination.lower()}"
+def provider(provider_name: str, target: str) -> str: return f"provider:{provider_name.lower()}:{target.lower()}"
+def geocoding(query: str) -> str: return f"geocoding:{query.lower()}"
+def community(category: str, area: str) -> str: return f"community:{category.lower()}:{area.lower()}"
