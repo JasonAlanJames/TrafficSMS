@@ -15,6 +15,7 @@ Current release: `v0.5.0-alpha`
 - SMS opt-in registration flow for Twilio compliance
 - Expanded incident and closure coverage from active community reports, enforcement cameras, and official DUI notices
 - Optional AI-assisted traffic summaries with deterministic traffic facts retained as the source of truth
+- Nationwide traffic-quality hardening for city/state, ZIP, and directional U.S. corridor requests
 - Stripe customer creation, checkout, portal access, plan changes, cancellation, reconciliation, and metadata tagging
 - Subscription state sync through Stripe webhooks with duplicate-event protection, grace-period handling, and trial-ready fields
 - Monthly SMS allowance tracking with atomic usage updates and reset-by-billing-period history
@@ -62,6 +63,8 @@ SMS examples:
 - `DELETE ROUTE WORK`
 
 Traffic replies use active internal coverage where available, including accidents, closures, lane closures, construction, hazards, disabled vehicles, weather impacts, police activity, cameras, and official DUI notices. Corridor replies provide a safe no-active-coverage result when no matching internal data exists.
+
+Nationwide examples include `TRAFFIC Phoenix AZ`, `TRAFFIC 10001`, `TRAFFIC I-95 S`, `TRAFFIC US-101 N`, and `TRAFFIC 91 W CA`. Ambiguous or unsupported inputs return concise guidance rather than guessed traffic data.
 
 ## Optional AI summaries
 

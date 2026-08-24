@@ -194,4 +194,9 @@ def test_traffic_service_enriches_but_only_invokes_the_existing_engine(
     assert result.report is not None
     assert result.report.severity == "HIGH"
     assert "Travel: 42 min" in result.message
-    assert result.metadata == {"traffic_mode": "route"}
+    assert result.metadata == {
+        "traffic_mode": "route",
+        "quality_level": "medium",
+        "coverage_status": "no_active_internal_data",
+        "normalized_query": "CORONA TO ANAHEIM",
+    }

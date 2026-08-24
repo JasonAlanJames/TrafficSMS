@@ -70,3 +70,8 @@ class TrafficReport:
     summary_metadata: SummaryMetadata = field(default_factory=SummaryMetadata)
     request: str = ""
     route: str = ""
+    quality_level: str = "unknown"
+    coverage_status: str = "no_active_internal_data"
+    fallback_reason: str = ""
+    location_confidence: float = 0.0
+    normalized_query: str = ""

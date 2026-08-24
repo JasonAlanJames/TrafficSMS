@@ -6,6 +6,7 @@ All notable changes to TrafficSMS are documented here.
 
 ### Added
 
+- Added Revision 5.9 nationwide deterministic traffic-quality classification for city/state, ZIP, interstate, U.S. route, state-route, ambiguous, and unsupported requests.
 - Added Revision 5.8 deterministic-first optional Bedrock traffic summarization with bounded incident coverage, grounding validation, SMS output guardrails, metadata, and safe fallback behavior.
 - Added Revision 5.7 expanded incident and closure coverage from active community reports, enforcement cameras, official DUI notices, and normalized provider-result data, including corridor-safe fallbacks.
 - Added Revision 5.6 custom saved-route automation, including private route persistence, authenticated account APIs, dashboard management, SMS save/list/delete/lookup commands, and migration `9a7c3e6b2d14`.

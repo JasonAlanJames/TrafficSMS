@@ -151,14 +151,17 @@ def test_catalog_resolves_supported_interstates(highway: str) -> None:
     assert resolution.entities["highway"] == highway
 
 
-def test_unknown_catalog_entity_is_not_routed_or_sent_to_ai() -> None:
-    """Unknown deterministic targets remain safely unknown."""
+def test_unknown_catalog_entity_reaches_the_safe_quality_fallback() -> None:
+    """Unknown traffic targets are handled by deterministic quality guidance."""
 
     context = _context("TRAFFIC NOTAREALPLACE")
     intent = asyncio.run(SMSIntentResolver().resolve(context))
 
-    assert intent is SMSIntent.UNKNOWN
-    assert context.metadata["unresolved_entities"] == ["NOTAREALPLACE"]
+    assert intent is SMSIntent.TRAFFIC_ROUTE
+    preparation = TrafficService().prepare_request(context)
+    assert preparation.request is not None
+    assert preparation.quality is not None
+    assert preparation.quality.quality_level == "medium"
 
 
 def test_nationwide_route_reaches_existing_traffic_service() -> None:

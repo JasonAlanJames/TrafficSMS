@@ -53,9 +53,8 @@ def user() -> User:
         ("TRAFFIC CORONA", "area", "area", "CORONA", None),
         ("TRAFFIC RIVERSIDE", "area", "area", "RIVERSIDE", None),
         ("TRAFFIC LAX", "area", "area", "LAX", None),
-        ("TRAFFIC I15", "area", "area", "I-15", None),
-        ("TRAFFIC I-15 NORTH", "corridor", "corridor", "I-15", "NORTH"),
-        ("TRAFFIC SR91 WEST", "corridor", "corridor", "SR-91", "WEST"),
+        ("TRAFFIC I-15 NORTH", "corridor", "corridor", "I-15", "N"),
+        ("TRAFFIC SR91 WEST", "corridor", "corridor", "SR-91", "W"),
         ("TRAFFIC HOME", "area", "area", "HOME", None),
         ("TRAFFIC WORK", "area", "area", "WORK", None),
         ("TRAFFIC GYM", "area", "area", "GYM", None),
@@ -79,6 +78,16 @@ def test_traffic_service_prepares_area_and_highway_commands(
     assert preparation.request.mode == mode
     assert getattr(preparation.request, field) == value
     assert preparation.request.direction == direction
+
+
+def test_traffic_service_requires_direction_for_a_highway(user: User) -> None:
+    """A highway without direction receives nationwide-safe guidance."""
+
+    preparation = TrafficService().prepare_request(_context("TRAFFIC I15", user))
+
+    assert preparation.request is None
+    assert preparation.quality is not None
+    assert preparation.quality.coverage_status == "missing_location"
 
 
 @pytest.mark.parametrize(
@@ -168,7 +177,12 @@ def test_traffic_service_bridges_to_existing_engine(user: User, monkeypatch) -> 
     )
 
     assert result.message == "Corona traffic is clear."
-    assert result.metadata == {"traffic_mode": "area"}
+    assert result.metadata == {
+        "traffic_mode": "area",
+        "quality_level": "medium",
+        "coverage_status": "no_active_internal_data",
+        "normalized_query": "CORONA",
+    }
 
 
 @pytest.mark.parametrize(

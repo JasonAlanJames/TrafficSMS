@@ -18,6 +18,8 @@ from app.services.traffic import build_traffic_reply
 from app.services.traffic_aggregation_service import TrafficAggregationService
 from app.services.traffic_intelligence_service import TrafficIntelligenceService
 from app.services.incident_coverage_service import IncidentCoverageService
+from app.services.traffic_quality_service import TrafficQualityService
+from app.models.traffic_quality import TrafficQualityAssessment
 from app.services.traffic_parser import parse_traffic_command
 from app.sms.context import SMSContext
 from app.sms.formatter import format_traffic_report
@@ -37,6 +39,7 @@ class TrafficPreparation:
 
     request: TrafficRequest | None
     error_message: str | None = None
+    quality: TrafficQualityAssessment | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +63,7 @@ class TrafficService:
         provider_manager: TrafficProviderManager | None = None,
         cache_manager: CacheManager | None = None,
         incident_coverage_service: IncidentCoverageService | None = None,
+        quality_service: TrafficQualityService | None = None,
     ) -> None:
         self._intelligence_service = intelligence_service or TrafficIntelligenceService()
         self._aggregation_service = aggregation_service or TrafficAggregationService()
@@ -67,6 +71,7 @@ class TrafficService:
         self._provider_manager = provider_manager or TrafficProviderManager()
         self._cache_manager = cache_manager or CacheManager()
         self._incident_coverage_service = incident_coverage_service or IncidentCoverageService()
+        self._quality_service = quality_service or TrafficQualityService()
 
     async def lookup_provider_result(
         self,
@@ -129,7 +134,18 @@ class TrafficService:
             request.origin = context.user.home_location
             request.destination = context.user.work_location
 
-        return TrafficPreparation(request=request)
+        return self.validate_request(request)
+
+    def validate_request(self, request: TrafficRequest) -> TrafficPreparation:
+        """Apply deterministic nationwide quality checks before traffic work begins."""
+
+        quality = self._quality_service.assess(request)
+        if not quality.is_supported:
+            return TrafficPreparation(request=None, error_message=quality.user_message, quality=quality)
+        if request.mode == "corridor":
+            request.corridor = quality.corridor or request.corridor
+            request.direction = quality.direction or request.direction
+        return TrafficPreparation(request=request, quality=quality)
 
     async def build_reply(
         self,
@@ -137,6 +153,23 @@ class TrafficService:
         request: TrafficRequest,
     ) -> TrafficServiceResult:
         """Delegate a prepared request to the existing traffic engine."""
+
+        quality = self._quality_service.assess(request)
+        if not quality.is_supported:
+            return TrafficServiceResult(
+                message=quality.user_message,
+                request=request,
+                metadata={
+                    "traffic_mode": request.mode,
+                    "quality_level": quality.quality_level,
+                    "coverage_status": quality.coverage_status,
+                    "fallback_reason": quality.fallback_reason,
+                },
+            )
+
+        if request.mode == "corridor":
+            request.corridor = quality.corridor or request.corridor
+            request.direction = quality.direction or request.direction
 
         started_at = datetime.now(UTC)
         reply = await build_traffic_reply(
@@ -152,6 +185,14 @@ class TrafficService:
             generation_duration=datetime.now(UTC) - started_at,
         )
         report = self._intelligence_service.build_report(request, aggregation)
+        report = replace(
+            report,
+            quality_level=quality.quality_level,
+            coverage_status=quality.coverage_status,
+            fallback_reason=quality.fallback_reason,
+            location_confidence=quality.confidence,
+            normalized_query=quality.normalized_query,
+        )
         deterministic_reply = format_traffic_report(report)
         summary = await self._summary_service.summarize(report, deterministic_reply)
         report = replace(report, summary_metadata=self._summary_service.metadata)
@@ -159,7 +200,12 @@ class TrafficService:
             message=summary,
             request=request,
             report=report,
-            metadata={"traffic_mode": request.mode},
+            metadata={
+                "traffic_mode": request.mode,
+                "quality_level": quality.quality_level,
+                "coverage_status": quality.coverage_status,
+                "normalized_query": quality.normalized_query,
+            },
         )
 
     @staticmethod

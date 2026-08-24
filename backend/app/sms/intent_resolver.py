@@ -91,10 +91,14 @@ class SMSIntentResolver:
         elif self._is_existing_saved_route_reference(context, correction.corrected_text):
             context.resolved_text = correction.corrected_text
         elif not self._apply_catalog_resolution(context, correction.corrected_text):
-            context.metadata["unresolved_entities"] = list(
-                self._entity_catalog.resolve(context.resolved_text or "").unresolved_targets
-            )
-            return self._return_unknown(context)
+            if correction.corrected_text.startswith("TRAFFIC "):
+                # Traffic quality owns safe ambiguity/unsupported fallbacks.
+                context.resolved_text = correction.corrected_text
+            else:
+                context.metadata["unresolved_entities"] = list(
+                    self._entity_catalog.resolve(context.resolved_text or "").unresolved_targets
+                )
+                return self._return_unknown(context)
         context.conversation = self._conversation_memory.get(
             context.phone_number,
             context.timestamp,

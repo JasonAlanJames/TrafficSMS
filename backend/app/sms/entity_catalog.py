@@ -103,11 +103,11 @@ DEFAULT_ENTITY_DEFINITIONS = (
     EntityDefinition("I-405", "interstate", aliases=("405", "405 FREEWAY")),
     EntityDefinition("US-1", "us_route"),
     EntityDefinition("US-101", "us_route", aliases=("101 FREEWAY",)),
-    EntityDefinition(
-        "SR-91",
-        "state_route",
-        aliases=("91", "THE 91", "91 FREEWAY", "RIVERSIDE FREEWAY"),
-    ),
+        EntityDefinition(
+            "SR-91",
+            "state_route",
+            aliases=("91", "THE 91", "91 FREEWAY", "RIVERSIDE FREEWAY"),
+        ),
     EntityDefinition("SR-55", "state_route"),
     EntityDefinition("SR-57", "state_route"),
     EntityDefinition("SR-60", "state_route"),

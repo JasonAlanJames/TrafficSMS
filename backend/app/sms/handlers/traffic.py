@@ -82,6 +82,8 @@ async def handle_traffic(context: SMSContext) -> SMSResponse:
                 subscriber_id=user.id,
             )
         )
+        if hasattr(traffic_service, "validate_request"):
+            preparation = traffic_service.validate_request(preparation.request)
     if preparation.request is None:
         return SMSResponse(
             success=False,
