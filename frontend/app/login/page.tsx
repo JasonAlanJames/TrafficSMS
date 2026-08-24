@@ -203,7 +203,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
+                placeholder="you@test.trafficsms.com"
                 required
               />
 
@@ -276,7 +276,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={forgotEmail}
                 onChange={(event) => setForgotEmail(event.target.value)}
-                placeholder="you@example.com"
+                placeholder="you@test.trafficsms.com"
                 required
               />
 

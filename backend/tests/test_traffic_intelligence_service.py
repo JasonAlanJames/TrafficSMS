@@ -167,7 +167,7 @@ def test_traffic_service_enriches_but_only_invokes_the_existing_engine(
 ) -> None:
     """TrafficService remains the sole bridge to the unchanged traffic engine."""
 
-    user = User(id=1, email="driver@example.com", phone_e164="+17145550123")
+    user = User(id=1, email="driver@test.trafficsms.com", phone_e164="+17145550123")
     context = SMSContext(
         db=cast(Session, object()),
         phone_number=user.phone_e164,

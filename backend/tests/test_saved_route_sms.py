@@ -26,7 +26,7 @@ def _context(db, user: User, text: str, intent: SMSIntent | None = None) -> SMSC
 
 
 def test_saved_route_sms_management_and_alias_resolution(db_session) -> None:
-    user = User(email="sms.routes@trafficsms.local", phone_e164="+17145550123")
+    user = User(email="sms.routes@test.trafficsms.com", phone_e164="+17145550123")
     db_session.add(user)
     db_session.commit()
 
@@ -65,7 +65,7 @@ def test_saved_route_sms_management_and_alias_resolution(db_session) -> None:
 
 def test_saved_route_sms_traffic_uses_existing_traffic_handler(db_session, monkeypatch) -> None:
     user = User(
-        email="sms.traffic@trafficsms.local", phone_e164="+17145550124",
+        email="sms.traffic@test.trafficsms.com", phone_e164="+17145550124",
         subscription_plan="standard", subscription_status="active",
     )
     db_session.add(user)

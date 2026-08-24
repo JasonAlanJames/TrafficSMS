@@ -193,7 +193,7 @@ app.include_router(billing.admin_router)
 def get_test_user(db):
     return db.scalar(
         select(User).where(
-            User.email == "test@trafficsms.local"
+            User.email == "test@test.trafficsms.com"
         )
     )
 

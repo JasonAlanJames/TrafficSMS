@@ -240,7 +240,7 @@ export default function RegistrationForm() {
                 className={`${styles.input}${emailError ? ` ${styles.inputError}` : ''}`}
                 type="email"
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder="you@test.trafficsms.com"
                 value={form.email}
                 onBlur={() => markTouched('email')}
                 onChange={(event) => updateField('email', event.target.value)}

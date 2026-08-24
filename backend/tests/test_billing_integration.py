@@ -33,7 +33,7 @@ def build_phone_number(seed: int) -> str:
 
 
 def register_payload(
-    email: str = "driver@example.com",
+    email: str = "driver@test.trafficsms.com",
     phone_number: str = "+17145551234",
 ) -> dict[str, object]:
     return {
@@ -57,7 +57,7 @@ def as_utc(value: datetime | None) -> datetime | None:
     return value.astimezone(UTC)
 
 
-def create_verified_user(client, db_session: Session, email: str = "driver@example.com") -> User:
+def create_verified_user(client, db_session: Session, email: str = "driver@test.trafficsms.com") -> User:
     phone_number = build_phone_number(
         1234 + (db_session.scalar(select(func.count()).select_from(User)) or 0)
     )
@@ -80,7 +80,7 @@ def create_verified_user(client, db_session: Session, email: str = "driver@examp
     return user
 
 
-def login(client, email: str = "driver@example.com", password: str = "SecurePass1!") -> dict[str, str]:
+def login(client, email: str = "driver@test.trafficsms.com", password: str = "SecurePass1!") -> dict[str, str]:
     response = client.post(
         "/auth/login",
         json={
@@ -390,7 +390,7 @@ def test_create_checkout_session_creates_customer_and_event(
     assert len(fake_stripe_gateway.created_customers) == 1
     assert len(fake_stripe_gateway.checkout_sessions) == 1
     checkout_payload = fake_stripe_gateway.checkout_sessions[0]
-    assert checkout_payload["metadata"]["email"] == "driver@example.com"
+    assert checkout_payload["metadata"]["email"] == "driver@test.trafficsms.com"
     assert checkout_payload["metadata"]["environment"] == settings.app_env
     assert checkout_payload["subscription_data"]["metadata"]["user_id"] == "1"
     frontend_url = settings.frontend_url.rstrip("/")
@@ -402,7 +402,7 @@ def test_create_checkout_session_creates_customer_and_event(
     )
     assert checkout_payload["allow_promotion_codes"] is False
 
-    user = db_session.scalar(select(User).where(User.email == "driver@example.com"))
+    user = db_session.scalar(select(User).where(User.email == "driver@test.trafficsms.com"))
     assert user is not None
     assert user.stripe_customer_id == "cus_1"
 
@@ -461,7 +461,7 @@ def test_billing_webhook_alias_accepts_valid_events(
     billing_settings,
     fake_stripe_gateway: FakeStripeGateway,
 ):
-    user = create_verified_user(client, db_session, email="alias@example.com")
+    user = create_verified_user(client, db_session, email="alias@test.trafficsms.com")
     install_billing_override(db_session, fake_stripe_gateway)
 
     payload = {
@@ -545,7 +545,7 @@ def test_subscription_lifecycle_webhooks_update_state(
     billing_settings,
     fake_stripe_gateway: FakeStripeGateway,
 ):
-    user = create_verified_user(client, db_session, email="lifecycle@example.com")
+    user = create_verified_user(client, db_session, email="lifecycle@test.trafficsms.com")
     attach_subscription(
         db_session,
         user,
@@ -663,7 +663,7 @@ def test_cancel_subscription_marks_period_end_cancellation(
 
 def test_usage_enforcement_and_monthly_reset(db_session: Session):
     user = User(
-        email="usage@example.com",
+        email="usage@test.trafficsms.com",
         password_hash="hashed",
         email_verified=True,
         is_active=True,
@@ -774,8 +774,8 @@ def test_admin_subscription_endpoint_returns_target_user_billing_data(
     billing_settings,
     fake_stripe_gateway: FakeStripeGateway,
 ):
-    admin = create_verified_user(client, db_session, email="admin@example.com")
-    target = create_verified_user(client, db_session, email="member@example.com")
+    admin = create_verified_user(client, db_session, email="admin@test.trafficsms.com")
+    target = create_verified_user(client, db_session, email="member@test.trafficsms.com")
     attach_subscription(
         db_session,
         target,
@@ -806,7 +806,7 @@ def test_reconcile_endpoint_refreshes_subscription_state(
     billing_settings,
     fake_stripe_gateway: FakeStripeGateway,
 ):
-    user = create_verified_user(client, db_session, email="reconcile@example.com")
+    user = create_verified_user(client, db_session, email="reconcile@test.trafficsms.com")
     attach_subscription(
         db_session,
         user,
@@ -844,7 +844,7 @@ def test_reconcile_endpoint_refreshes_subscription_state(
 
 def test_grace_period_access_context_respects_grace_window(db_session: Session):
     user = User(
-        email="grace@example.com",
+        email="grace@test.trafficsms.com",
         password_hash="hashed",
         email_verified=True,
         is_active=True,
@@ -891,7 +891,7 @@ def test_invoice_payment_webhook_updates_last_payment_date(
     billing_settings,
     fake_stripe_gateway: FakeStripeGateway,
 ):
-    user = create_verified_user(client, db_session, email="invoice@example.com")
+    user = create_verified_user(client, db_session, email="invoice@test.trafficsms.com")
     attach_subscription(
         db_session,
         user,
@@ -934,7 +934,7 @@ def test_invoice_payment_failed_webhook_updates_subscription_state(
     billing_settings,
     fake_stripe_gateway: FakeStripeGateway,
 ):
-    user = create_verified_user(client, db_session, email="failed@example.com")
+    user = create_verified_user(client, db_session, email="failed@test.trafficsms.com")
     attach_subscription(
         db_session,
         user,

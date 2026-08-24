@@ -29,8 +29,8 @@ def test_saved_routes_table_and_unique_alias_constraint(db_session) -> None:
 
 
 def test_saved_route_service_crud_ownership_and_normalization(db_session) -> None:
-    first_user = _user("first.user@trafficsms.local")
-    second_user = _user("second.user@trafficsms.local")
+    first_user = _user("first.user@test.trafficsms.com")
+    second_user = _user("second.user@test.trafficsms.com")
     db_session.add_all([first_user, second_user])
     db_session.commit()
     service = SavedRouteService(db_session)
@@ -56,8 +56,8 @@ def test_saved_route_service_crud_ownership_and_normalization(db_session) -> Non
 
 
 def test_saved_route_aliases_are_private_and_unique_per_user(db_session) -> None:
-    first_user = _user("routes.one@trafficsms.local")
-    second_user = _user("routes.two@trafficsms.local")
+    first_user = _user("routes.one@test.trafficsms.com")
+    second_user = _user("routes.two@test.trafficsms.com")
     db_session.add_all([first_user, second_user])
     db_session.commit()
     service = SavedRouteService(db_session)

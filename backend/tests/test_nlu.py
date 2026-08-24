@@ -107,7 +107,7 @@ def test_ai_fallback_uses_saved_home_for_destination_request() -> None:
 
     user = User(
         id=1,
-        email="driver@example.com",
+        email="driver@test.trafficsms.com",
         phone_e164="+17145550123",
         home_location="Corona, CA",
     )

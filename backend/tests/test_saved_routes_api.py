@@ -13,7 +13,7 @@ def _authenticated_client(client, user: User):
 
 
 def test_saved_route_api_crud_and_validation(client, db_session) -> None:
-    user = User(email="dashboard.routes@trafficsms.local")
+    user = User(email="dashboard.routes@test.trafficsms.com")
     db_session.add(user)
     db_session.commit()
     authenticated = _authenticated_client(client, user)
@@ -44,8 +44,8 @@ def test_saved_route_api_crud_and_validation(client, db_session) -> None:
 
 
 def test_saved_route_api_enforces_authentication_and_ownership(client, db_session) -> None:
-    owner = User(email="route.owner@trafficsms.local")
-    other = User(email="route.other@trafficsms.local")
+    owner = User(email="route.owner@test.trafficsms.com")
+    other = User(email="route.other@test.trafficsms.com")
     db_session.add_all([owner, other])
     db_session.commit()
 

@@ -14,7 +14,7 @@ from app.models.entities import User
 from app.models.refresh_token import RefreshToken
 
 
-def register_payload(email: str = "driver@example.com") -> dict[str, object]:
+def register_payload(email: str = "driver@test.trafficsms.com") -> dict[str, object]:
     return {
         "email": email,
         "password": "SecurePass1!",
@@ -24,7 +24,7 @@ def register_payload(email: str = "driver@example.com") -> dict[str, object]:
     }
 
 
-def create_verified_user(client, db_session: Session, email: str = "driver@example.com") -> User:
+def create_verified_user(client, db_session: Session, email: str = "driver@test.trafficsms.com") -> User:
     response = client.post("/auth/register", json=register_payload(email=email))
     assert response.status_code == 201
 
@@ -43,7 +43,7 @@ def create_verified_user(client, db_session: Session, email: str = "driver@examp
     return user
 
 
-def login(client, email: str = "driver@example.com", password: str = "SecurePass1!"):
+def login(client, email: str = "driver@test.trafficsms.com", password: str = "SecurePass1!"):
     response = client.post(
         "/auth/login",
         json={
@@ -138,7 +138,7 @@ class FailingSMTP(FakeSMTP):
 
 @pytest.fixture()
 def smtp_outbox(monkeypatch):
-    from app.services import email as email_service_module
+    from app.email import service as email_service_module
 
     FakeSMTP.reset()
     email_service_module.get_email_service.cache_clear()
@@ -150,11 +150,12 @@ def smtp_outbox(monkeypatch):
         smtp_port=2525,
         smtp_username="mailer",
         smtp_password="secret",
-        smtp_tls=True,
-        smtp_ssl=False,
-        mail_from="no-reply@trafficsms.test",
-        mail_from_name="TrafficSMS Test",
-        public_base_url="https://trafficsms.test/api",
+        email_enabled=True,
+        email_from_address="no-reply@trafficsms.test",
+        email_from_name="TrafficSMS Test",
+        smtp_use_starttls=True,
+        smtp_use_tls=False,
+        frontend_url="https://trafficsms.test",
     ):
         yield FakeSMTP
 
@@ -163,7 +164,7 @@ def smtp_outbox(monkeypatch):
 
 @pytest.fixture()
 def failing_smtp(monkeypatch):
-    from app.services import email as email_service_module
+    from app.email import service as email_service_module
 
     FailingSMTP.reset()
     email_service_module.get_email_service.cache_clear()
@@ -175,11 +176,12 @@ def failing_smtp(monkeypatch):
         smtp_port=2525,
         smtp_username="",
         smtp_password="",
-        smtp_tls=False,
-        smtp_ssl=False,
-        mail_from="no-reply@trafficsms.test",
-        mail_from_name="TrafficSMS Test",
-        public_base_url="https://trafficsms.test/api",
+        email_enabled=True,
+        email_from_address="no-reply@trafficsms.test",
+        email_from_name="TrafficSMS Test",
+        smtp_use_starttls=False,
+        smtp_use_tls=False,
+        frontend_url="https://trafficsms.test",
     ):
         yield FailingSMTP
 
@@ -203,7 +205,7 @@ def test_registration_verification_login_and_current_user(client, db_session: Se
     assert response.status_code == 201
 
     user = db_session.scalar(
-        select(User).where(User.email == "driver@example.com")
+        select(User).where(User.email == "driver@test.trafficsms.com")
     )
     assert user is not None
     assert user.email_verified is False
@@ -229,17 +231,17 @@ def test_registration_verification_login_and_current_user(client, db_session: Se
     assert body["refresh_token"]
     assert body["expires_in"] == 1800
     assert body["token_type"] == "bearer"
-    assert body["user"]["email"] == "driver@example.com"
+    assert body["user"]["email"] == "driver@test.trafficsms.com"
 
     claims = decode_access_token(body["access_token"])
     assert claims["sub"] == str(user.id)
-    assert claims["email"] == "driver@example.com"
+    assert claims["email"] == "driver@test.trafficsms.com"
     assert claims["subscription_tier"] == "free"
     assert claims["type"] == "access"
 
     me_response = client.get("/users/me", headers=auth_headers(body["access_token"]))
     assert me_response.status_code == 200
-    assert me_response.json()["email"] == "driver@example.com"
+    assert me_response.json()["email"] == "driver@test.trafficsms.com"
 
 
 def test_refresh_rotation_and_logout(client, db_session: Session):
@@ -351,11 +353,11 @@ def test_forgot_password_and_reset_password_revokes_existing_tokens(client, db_s
 
 
 def test_verify_email_rejects_expired_tokens(client, db_session: Session):
-    response = client.post("/auth/register", json=register_payload(email="expired@example.com"))
+    response = client.post("/auth/register", json=register_payload(email="expired@test.trafficsms.com"))
     assert response.status_code == 201
 
     user = db_session.scalar(
-        select(User).where(User.email == "expired@example.com")
+        select(User).where(User.email == "expired@test.trafficsms.com")
     )
     assert user is not None
 
@@ -381,17 +383,17 @@ def test_registration_rejects_duplicate_email_and_phone(client, db_session: Sess
 
     duplicate_phone = client.post(
         "/auth/register",
-        json=register_payload(email="another@example.com"),
+        json=register_payload(email="another@test.trafficsms.com"),
     )
     assert duplicate_phone.status_code == 409
     assert "phone" in duplicate_phone.json()["detail"].lower()
 
 
 def test_registration_triggers_smtp_send(client, db_session: Session, smtp_outbox):
-    response = client.post("/auth/register", json=register_payload(email="mail@example.com"))
+    response = client.post("/auth/register", json=register_payload(email="mail@test.trafficsms.com"))
     assert response.status_code == 201
 
-    user = db_session.scalar(select(User).where(User.email == "mail@example.com"))
+    user = db_session.scalar(select(User).where(User.email == "mail@test.trafficsms.com"))
     assert user is not None
 
     assert len(smtp_outbox.sent_messages) == 1
@@ -400,15 +402,15 @@ def test_registration_triggers_smtp_send(client, db_session: Session, smtp_outbo
     assert smtp_outbox.login_calls == [("mailer", "secret")]
 
     message = smtp_outbox.sent_messages[0]
-    assert message["To"] == "mail@example.com"
+    assert message["To"] == "mail@test.trafficsms.com"
     assert message["Subject"] == "Verify your TrafficSMS account"
     assert user.verification_token in message_text_body(message)
-    assert "https://trafficsms.test/api/auth/verify-email?token=" in message_text_body(message)
+    assert "https://trafficsms.test/verify-email?token=" in message_text_body(message)
     assert "Verify your TrafficSMS account" in message_html_body(message)
 
 
 def test_password_reset_triggers_smtp_send(client, db_session: Session, smtp_outbox):
-    user = create_verified_user(client, db_session, email="resetmail@example.com")
+    user = create_verified_user(client, db_session, email="resetmail@test.trafficsms.com")
 
     response = client.post("/auth/forgot-password", json={"email": user.email})
     assert response.status_code == 200
@@ -421,15 +423,15 @@ def test_password_reset_triggers_smtp_send(client, db_session: Session, smtp_out
     assert message["To"] == user.email
     assert message["Subject"] == "Reset your TrafficSMS password"
     assert user.password_reset_token in message_text_body(message)
-    assert "https://trafficsms.test/api/auth/reset-password" in message_text_body(message)
+    assert "https://trafficsms.test/reset-password?token=" in message_text_body(message)
     assert "Reset your TrafficSMS password" in message_html_body(message)
 
 
 def test_resend_verification_triggers_smtp_send(client, db_session: Session, smtp_outbox):
-    response = client.post("/auth/register", json=register_payload(email="resendmail@example.com"))
+    response = client.post("/auth/register", json=register_payload(email="resendmail@test.trafficsms.com"))
     assert response.status_code == 201
 
-    user = db_session.scalar(select(User).where(User.email == "resendmail@example.com"))
+    user = db_session.scalar(select(User).where(User.email == "resendmail@test.trafficsms.com"))
     assert user is not None
     original_message_count = len(smtp_outbox.sent_messages)
 
@@ -451,21 +453,21 @@ def test_resend_verification_triggers_smtp_send(client, db_session: Session, smt
 
 
 def test_registration_succeeds_when_smtp_fails(client, db_session: Session, failing_smtp):
-    response = client.post("/auth/register", json=register_payload(email="smtpfail@example.com"))
+    response = client.post("/auth/register", json=register_payload(email="smtpfail@test.trafficsms.com"))
     assert response.status_code == 201
 
-    user = db_session.scalar(select(User).where(User.email == "smtpfail@example.com"))
+    user = db_session.scalar(select(User).where(User.email == "smtpfail@test.trafficsms.com"))
     assert user is not None
     assert user.verification_token is not None
     assert len(failing_smtp.sent_messages) == 0
 
 
 def test_resend_verification_reissues_expired_token(client, db_session: Session):
-    response = client.post("/auth/register", json=register_payload(email="resend@example.com"))
+    response = client.post("/auth/register", json=register_payload(email="resend@test.trafficsms.com"))
     assert response.status_code == 201
 
     user = db_session.scalar(
-        select(User).where(User.email == "resend@example.com")
+        select(User).where(User.email == "resend@test.trafficsms.com")
     )
     assert user is not None
     original_token = user.verification_token
@@ -490,7 +492,7 @@ def test_resend_verification_reissues_expired_token(client, db_session: Session)
 
 
 def test_password_reset_cooldown_and_expired_reset_token(client, db_session: Session):
-    user = create_verified_user(client, db_session, email="reset@example.com")
+    user = create_verified_user(client, db_session, email="reset@test.trafficsms.com")
 
     first_reset = client.post(
         "/auth/forgot-password",
@@ -530,7 +532,7 @@ def test_password_reset_cooldown_and_expired_reset_token(client, db_session: Ses
 
 
 def test_refresh_replay_invalidates_existing_access_tokens(client, db_session: Session):
-    user = create_verified_user(client, db_session, email="replay@example.com")
+    user = create_verified_user(client, db_session, email="replay@test.trafficsms.com")
     login_body = login(client, email=user.email).json()
 
     refreshed = client.post(
@@ -557,7 +559,7 @@ def test_refresh_replay_invalidates_existing_access_tokens(client, db_session: S
 
 
 def test_login_rate_limit_returns_retry_after(client, db_session: Session):
-    user = create_verified_user(client, db_session, email="ratelimit@example.com")
+    user = create_verified_user(client, db_session, email="ratelimit@test.trafficsms.com")
 
     with temporary_auth_settings(
         failed_login_lockout_threshold=99,
@@ -584,7 +586,7 @@ def test_login_rate_limit_returns_retry_after(client, db_session: Session):
 
 
 def test_account_lockout_auto_unlocks_after_expiration(client, db_session: Session):
-    user = create_verified_user(client, db_session, email="lockout@example.com")
+    user = create_verified_user(client, db_session, email="lockout@test.trafficsms.com")
 
     with temporary_auth_settings(
         failed_login_lockout_threshold=2,
@@ -621,9 +623,9 @@ def test_account_lockout_auto_unlocks_after_expiration(client, db_session: Sessi
 
 
 def test_session_listing_and_single_session_revocation(client, db_session: Session):
-    create_verified_user(client, db_session, email="sessions@example.com")
-    first_login = login(client, email="sessions@example.com").json()
-    second_login = login(client, email="sessions@example.com").json()
+    create_verified_user(client, db_session, email="sessions@test.trafficsms.com")
+    first_login = login(client, email="sessions@test.trafficsms.com").json()
+    second_login = login(client, email="sessions@test.trafficsms.com").json()
 
     sessions_response = client.get(
         "/auth/sessions",
@@ -657,7 +659,7 @@ def test_session_listing_and_single_session_revocation(client, db_session: Sessi
 
 
 def test_profile_update_and_contact_change_endpoints(client, db_session: Session):
-    user = create_verified_user(client, db_session, email="profile@example.com")
+    user = create_verified_user(client, db_session, email="profile@test.trafficsms.com")
     tokens = login(client, email=user.email).json()
 
     profile_response = client.patch(
@@ -694,14 +696,14 @@ def test_profile_update_and_contact_change_endpoints(client, db_session: Session
         "/users/me/change-email",
         headers=auth_headers(tokens["access_token"]),
         json={
-            "new_email": "updated@example.com",
+            "new_email": "updated@test.trafficsms.com",
             "current_password": "SecurePass1!",
         },
     )
     assert email_change_request.status_code == 200
 
     db_session.refresh(user)
-    assert user.pending_email == "updated@example.com"
+    assert user.pending_email == "updated@test.trafficsms.com"
     assert user.pending_email_verification_token is not None
 
     confirm_response = client.post(
@@ -711,12 +713,12 @@ def test_profile_update_and_contact_change_endpoints(client, db_session: Session
     assert confirm_response.status_code == 200
 
     db_session.refresh(user)
-    assert user.email == "updated@example.com"
+    assert user.email == "updated@test.trafficsms.com"
     assert user.pending_email is None
 
 
 def test_change_password_revokes_current_session_and_requires_new_login(client, db_session: Session):
-    user = create_verified_user(client, db_session, email="passwordchange@example.com")
+    user = create_verified_user(client, db_session, email="passwordchange@test.trafficsms.com")
     tokens = login(client, email=user.email).json()
 
     response = client.post(

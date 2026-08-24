@@ -9,6 +9,7 @@ Current release: `v0.5.0-alpha`
 - Authenticated account registration and login
 - JWT access tokens with rotating refresh tokens, replay detection, and session version invalidation
 - Email verification resend, verification expiration handling, and password reset resend protection
+- Configurable transactional SMTP delivery for verification, password reset, and email-change confirmation; disabled by default until explicitly configured
 - Login rate limiting, timed account lockouts, unlock logic, and authentication audit events
 - Session listing and single-session revocation support
 - Profile, password, email, and phone update endpoints
@@ -144,6 +145,10 @@ These values must be set for production billing:
 - `ADMIN_EMAILS`
 
 The example env file also includes product ID slots for compatibility, but pricing now resolves from the configured Stripe price IDs.
+
+## Transactional Email
+
+Account lifecycle email is disabled by default. Set `EMAIL_ENABLED=true` with `EMAIL_PROVIDER=smtp`, sender fields, SMTP host/port/credentials, TLS choice, paths, and `SUPPORT_URL` to enable verification, reset, resend, and email-change delivery.
 
 ## Database and migrations
 

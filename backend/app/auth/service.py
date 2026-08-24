@@ -44,7 +44,7 @@ from app.billing.service import BillingService
 from app.billing.stripe_gateway import StripeGateway
 from app.core.config import settings
 from app.models.entities import User
-from app.services.email import EmailService, get_email_service
+from app.email import EmailService, get_email_service
 
 logger = logging.getLogger(__name__)
 
@@ -262,15 +262,7 @@ class AuthService:
         else:
             self.repository.save(user)
 
-        if self._is_development_logging_enabled():
-            logger.warning(
-                "Verification token persisted preview=%s length=%s user_id=%s",
-                self._token_preview(user.verification_token),
-                len(user.verification_token or ""),
-                user.id,
-            )
-
-        self.email_service.send_verification_email(
+        email_result = self.email_service.send_verification_email(
             recipient=user.email,
             token=user.verification_token,
         )
@@ -286,7 +278,7 @@ class AuthService:
 
         return RegisterResponse(
             message="Account created. Verification email queued.",
-            email_verification_sent=True,
+            email_verification_sent=email_result.sent,
         )
 
     def login(
@@ -985,6 +977,10 @@ class AuthService:
             hours=settings.email_verification_token_expire_hours
         )
         self.repository.save(user)
+        self.email_service.send_email_change_verification_email(
+            recipient=normalized_email,
+            token=user.pending_email_verification_token,
+        )
         self._log_event(
             event_type="email_change_request",
             outcome="success",

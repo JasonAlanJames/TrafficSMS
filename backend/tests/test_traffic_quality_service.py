@@ -75,7 +75,7 @@ def _context(command: str) -> SMSContext:
     parsed = SMSParser().parse(command)
     return SMSContext(
         db=cast(Session, object()), phone_number="+17145550123",
-        user=User(id=1, email="quality@trafficsms.local", phone_e164="+17145550123"),
+        user=User(id=1, email="quality@test.trafficsms.com", phone_e164="+17145550123"),
         subscription=None, normalized_text=parsed.normalized_text, raw_text=command,
         tokens=parsed.tokens, parsed_arguments=parsed.arguments, timestamp=datetime.now(UTC),
     )

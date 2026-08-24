@@ -42,7 +42,7 @@ Status: Complete to production quality with external delivery follow-up
 - [x] Authentication audit events and security logging
 - [x] Protected current-user endpoints
 - [x] Frontend login and session persistence
-- [ ] SMTP or transactional email delivery
+- [x] SMTP or transactional email delivery in code (provider credentials and DNS remain operational follow-up)
 
 ## Phase 3: Stripe Billing and Subscription Management
 
