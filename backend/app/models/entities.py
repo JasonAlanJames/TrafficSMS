@@ -278,6 +278,13 @@ class User(Base):
         passive_deletes=True,
     )
 
+    saved_routes: Mapped[list["SavedRoute"]] = relationship(
+        "SavedRoute",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
 
 class CommunityReport(Base):
     __tablename__ = "community_reports"

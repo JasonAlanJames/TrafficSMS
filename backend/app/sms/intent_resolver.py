@@ -15,6 +15,7 @@ from app.sms.providers.mock_provider import MockLLMIntentProvider
 from app.sms.providers.provider import AIIntentResult, LLMIntentProvider
 from app.sms.synonyms import SMSSynonymDictionary
 from app.sms.typo_correction import TypoCorrectionService
+from app.services.saved_route_service import SavedRouteService
 
 
 _VOTE_COMMAND_RE = re.compile(r"P\d+")
@@ -85,7 +86,11 @@ class SMSIntentResolver:
             context.metadata["typo_correction_rejected"] = True
             return self._return_unknown(context)
 
-        if not self._apply_catalog_resolution(context, correction.corrected_text):
+        if self._is_explicit_saved_route_command(correction.corrected_text):
+            context.resolved_text = correction.corrected_text
+        elif self._is_existing_saved_route_reference(context, correction.corrected_text):
+            context.resolved_text = correction.corrected_text
+        elif not self._apply_catalog_resolution(context, correction.corrected_text):
             context.metadata["unresolved_entities"] = list(
                 self._entity_catalog.resolve(context.resolved_text or "").unresolved_targets
             )
@@ -159,6 +164,14 @@ class SMSIntentResolver:
             return simple_intent
         if command == "TRAFFIC":
             return self._resolve_traffic(parsed.arguments)
+        if command == "ROUTE" and parsed.arguments:
+            return SMSIntent.TRAFFIC_SAVED_ROUTE
+        if command == "SAVE" and parsed.arguments[:1] == ("ROUTE",):
+            return SMSIntent.SAVE_ROUTE
+        if command == "ROUTES" or (command == "LIST" and parsed.arguments == ("ROUTES",)):
+            return SMSIntent.LIST_ROUTES
+        if command in {"DELETE", "REMOVE"} and parsed.arguments[:1] == ("ROUTE",) and len(parsed.arguments) > 1:
+            return SMSIntent.DELETE_ROUTE
         if _VOTE_COMMAND_RE.fullmatch(command) and len(parsed.arguments) == 1:
             return SMSIntent.POLICE_VOTE
         return None
@@ -167,6 +180,8 @@ class SMSIntentResolver:
     def _resolve_traffic(arguments: tuple[str, ...]) -> SMSIntent | None:
         if not arguments:
             return SMSIntent.TRAFFIC
+        if arguments[0] == "ROUTE" and len(arguments) > 1:
+            return SMSIntent.TRAFFIC_SAVED_ROUTE
         if arguments[0] == "FROM":
             return None
         route_separator_count = arguments.count("TO")
@@ -178,6 +193,35 @@ class SMSIntentResolver:
         if route_separator_count > 1:
             return None
         return _SAVED_LOCATION_INTENTS.get(arguments[0], SMSIntent.TRAFFIC_ROUTE)
+
+    @staticmethod
+    def _is_explicit_saved_route_command(text: str) -> bool:
+        """Keep route-management commands out of the geographic entity catalog."""
+
+        tokens = text.split()
+        return bool(
+            (tokens[:1] == ["ROUTE"] and len(tokens) > 1)
+            or (tokens[:2] == ["TRAFFIC", "ROUTE"] and len(tokens) > 2)
+            or tokens[:2] == ["SAVE", "ROUTE"]
+            or tokens[:1] == ["ROUTES"]
+            or tokens[:2] == ["LIST", "ROUTES"]
+            or (tokens[:2] in (["DELETE", "ROUTE"], ["REMOVE", "ROUTE"]) and len(tokens) > 2)
+        )
+
+    @staticmethod
+    def _is_existing_saved_route_reference(context: SMSContext, text: str) -> bool:
+        """Allow implicit ``TRAFFIC <alias>`` only when that private alias exists."""
+
+        if context.user is None or not hasattr(context.db, "scalar"):
+            return False
+        tokens = text.split()
+        if tokens[:1] != ["TRAFFIC"] or len(tokens) < 2 or "TO" in tokens:
+            return False
+        if tokens[1] in _SAVED_LOCATION_INTENTS or tokens[1] == "ROUTE":
+            return False
+        return SavedRouteService(context.db).get_by_alias(
+            context.user.id, " ".join(tokens[1:]), sms_only=True
+        ) is not None
 
     def _apply_catalog_resolution(
         self,

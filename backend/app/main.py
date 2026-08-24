@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
-from app.api import billing, stripe_webhook, twilio_webhook, users
+from app.api import billing, saved_routes, stripe_webhook, twilio_webhook, users
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.database import SessionLocal
@@ -183,6 +183,7 @@ async def unhandled_exception_handler(
 
 app.include_router(auth_router)
 app.include_router(users.router)
+app.include_router(saved_routes.router)
 app.include_router(twilio_webhook.router)
 app.include_router(stripe_webhook.router)
 app.include_router(billing.router)

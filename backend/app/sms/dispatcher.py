@@ -11,6 +11,7 @@ from app.sms.handlers.start import handle_start
 from app.sms.handlers.stop import handle_stop
 from app.sms.handlers.subscription import handle_subscribe
 from app.sms.handlers.traffic import handle_traffic
+from app.sms.handlers.route import handle_delete_route, handle_list_routes, handle_save_route
 from app.sms.handlers.unknown import handle_unknown
 from app.sms.intents import SMSIntent
 from app.sms.context import SMSContext
@@ -52,6 +53,10 @@ class SMSDispatcher:
             SMSIntent.TRAFFIC_GYM: handle_traffic,
             SMSIntent.TRAFFIC_SCHOOL: handle_traffic,
             SMSIntent.TRAFFIC_ROUTE: handle_traffic,
+            SMSIntent.TRAFFIC_SAVED_ROUTE: handle_traffic,
+            SMSIntent.SAVE_ROUTE: handle_save_route,
+            SMSIntent.LIST_ROUTES: handle_list_routes,
+            SMSIntent.DELETE_ROUTE: handle_delete_route,
             SMSIntent.SUBSCRIBE: handle_subscribe,
             SMSIntent.POLICE_REPORT: handle_police_report,
             SMSIntent.POLICE_VOTE: handle_police_vote,

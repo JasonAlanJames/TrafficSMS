@@ -8,11 +8,14 @@ from app.billing.exceptions import SubscriptionRequiredError, UsageLimitExceeded
 from app.billing.repository import BillingRepository
 from app.billing.service import BillingService
 from app.llm.delivery_formatter import DeliveryFormatter
-from app.services.traffic_service import TrafficService
+from app.models.traffic_request import TrafficRequest
+from app.services.saved_route_service import SavedRouteService
+from app.services.traffic_service import TrafficPreparation, TrafficService
 from app.sms.context import SMSContext
 from app.sms.handlers.subscription import REGISTRATION_URL
 from app.sms.intents import SMSIntent
 from app.sms.models import SMSResponse
+from app.sms.route_commands import parse_route_alias
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +61,27 @@ async def handle_traffic(context: SMSContext) -> SMSResponse:
         return _subscription_response(intent)
 
     traffic_service = TrafficService()
-    preparation = traffic_service.prepare_request(context)
+    saved_route = _resolve_saved_route(context)
+    if saved_route is False:
+        return SMSResponse(
+            success=False,
+            intent=intent,
+            message="That saved route was not found. Text LIST ROUTES to see your routes.",
+        )
+    if saved_route is None:
+        preparation = traffic_service.prepare_request(context)
+    else:
+        SavedRouteService(context.db).mark_used(saved_route)
+        context.metadata["saved_route_id"] = saved_route.id
+        context.metadata["saved_route_alias"] = saved_route.name
+        preparation = TrafficPreparation(
+            request=TrafficRequest(
+                mode="route",
+                origin=saved_route.origin_text,
+                destination=saved_route.destination_text,
+                subscriber_id=user.id,
+            )
+        )
     if preparation.request is None:
         return SMSResponse(
             success=False,
@@ -106,9 +129,36 @@ async def handle_traffic(context: SMSContext) -> SMSResponse:
         message=delivery.message,
         metadata={
             **traffic_result.metadata,
+            **({
+                "saved_route_id": context.metadata["saved_route_id"],
+                "saved_route_alias": context.metadata["saved_route_alias"],
+            } if "saved_route_id" in context.metadata else {}),
             "remaining_queries": remaining_sms,
             "subscription_level": billing_context.subscription.plan,
             "intent_source": context.metadata.get("intent_source"),
             "entities": dict(context.entities),
         },
     )
+
+
+def _resolve_saved_route(context: SMSContext):
+    """Resolve custom aliases while retaining fixed profile shortcut semantics."""
+
+    if context.user is None:
+        return None
+    text = context.resolved_text or context.normalized_text
+    tokens = text.split()
+    service = SavedRouteService(context.db)
+    explicit_alias = parse_route_alias(text)
+    if explicit_alias:
+        return service.get_by_alias(context.user.id, explicit_alias, sms_only=True) or False
+    if (
+        hasattr(context.db, "scalar")
+        and tokens[:1] == ["TRAFFIC"]
+        and len(tokens) > 1
+        and "TO" not in tokens
+    ):
+        alias = " ".join(tokens[1:])
+        if alias not in {"HOME", "WORK", "GYM", "SCHOOL"}:
+            return service.get_by_alias(context.user.id, alias, sms_only=True)
+    return None

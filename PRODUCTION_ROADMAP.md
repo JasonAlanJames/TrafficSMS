@@ -73,7 +73,7 @@ Status: In progress
 - [x] Existing `TRAFFIC` command foundation
 - [x] Community reporting schema
 - [x] SMS reply generation pipeline
-- [ ] Saved-route automation beyond named profile locations
+- [x] Saved-route automation beyond named profile locations
 - [ ] Expanded incident and closure coverage
 - [ ] AI-assisted traffic summarization
 - [ ] Nationwide traffic-quality hardening

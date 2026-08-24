@@ -14,6 +14,10 @@ COMMAND_DICTIONARY = (
     "POLICE",
 )
 
+EXACT_MANAGEMENT_COMMANDS = {
+    "SAVE", "ROUTE", "ROUTES", "LIST", "DELETE", "REMOVE",
+}
+
 
 @dataclass(frozen=True)
 class TypoCorrectionResult:
@@ -60,7 +64,7 @@ class TypoCorrectionService:
             )
 
         command = tokens[0]
-        if command in self._command_dictionary:
+        if command in self._command_dictionary or command in EXACT_MANAGEMENT_COMMANDS:
             return TypoCorrectionResult(
                 corrected_text=normalized_text,
                 original_command=command,

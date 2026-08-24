@@ -45,6 +45,37 @@ export type ChangePhonePayload = {
   current_password: string;
 };
 
+export type SavedRoutePayload = {
+  name: string;
+  origin_text: string;
+  destination_text: string;
+  description?: string | null;
+  is_active?: boolean;
+  sms_enabled?: boolean;
+  web_enabled?: boolean;
+  sort_order?: number;
+};
+
+export type SavedRoute = {
+  id: number;
+  name: string;
+  normalized_name: string;
+  origin_text: string;
+  destination_text: string;
+  description: string | null;
+  is_active: boolean;
+  sms_enabled: boolean;
+  web_enabled: boolean;
+  sort_order: number;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SavedRouteListResponse = {
+  routes: SavedRoute[];
+};
+
 export type AuthenticatedUser = {
   id: number;
   email: string;
@@ -339,6 +370,41 @@ export async function updateCurrentUserProfile(
     method: 'PATCH',
     headers: buildJsonHeaders(accessToken),
     body: JSON.stringify(payload),
+  });
+}
+
+export async function listSavedRoutes(accessToken: string): Promise<SavedRoute[]> {
+  const response = await request<SavedRouteListResponse>('/users/me/routes', {
+    method: 'GET',
+    headers: buildAuthHeaders(accessToken),
+  });
+  return response.routes;
+}
+
+export async function createSavedRoute(accessToken: string, payload: SavedRoutePayload): Promise<SavedRoute> {
+  return request<SavedRoute>('/users/me/routes', {
+    method: 'POST',
+    headers: buildJsonHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateSavedRoute(
+  accessToken: string,
+  routeId: number,
+  payload: Partial<SavedRoutePayload>,
+): Promise<SavedRoute> {
+  return request<SavedRoute>(`/users/me/routes/${routeId}`, {
+    method: 'PATCH',
+    headers: buildJsonHeaders(accessToken),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteSavedRoute(accessToken: string, routeId: number): Promise<void> {
+  await request<void>(`/users/me/routes/${routeId}`, {
+    method: 'DELETE',
+    headers: buildAuthHeaders(accessToken),
   });
 }
 

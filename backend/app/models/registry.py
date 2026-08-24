@@ -17,6 +17,7 @@ from app.models.auth_event import AuthEvent
 from app.models.refresh_token import RefreshToken
 from app.models.subscription import Subscription
 from app.models.usage_tracking import UsageTracking
+from app.models.saved_route import SavedRoute
 
 __all__ = [
     "User",
@@ -29,4 +30,5 @@ __all__ = [
     "ReportVote",
     "EnforcementCamera",
     "DuiNotice",
+    "SavedRoute",
 ]

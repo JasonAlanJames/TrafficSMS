@@ -16,7 +16,7 @@ Current release: `v0.5.0-alpha`
 - Stripe customer creation, checkout, portal access, plan changes, cancellation, reconciliation, and metadata tagging
 - Subscription state sync through Stripe webhooks with duplicate-event protection, grace-period handling, and trial-ready fields
 - Monthly SMS allowance tracking with atomic usage updates and reset-by-billing-period history
-- Account dashboard with live subscription, usage, billing history, verification state, saved places, security controls, and session management
+- Account dashboard with live subscription, usage, billing history, verification state, saved places, custom saved routes, security controls, and session management
 - Admin subscription inspection endpoint
 
 ## Subscription model
@@ -46,6 +46,18 @@ Webhook endpoint:
 Admin endpoint:
 
 - `GET /admin/users/{user_id}/subscription`
+
+## Custom saved routes
+
+Authenticated users can manage private custom routes through `GET`, `POST`, `PATCH`, and `DELETE /users/me/routes`. Routes store text origins and destinations and can be used without changing fixed Home, Work, Gym, or School locations.
+
+SMS examples:
+
+- `SAVE ROUTE WORK 92882 TO IRVINE`
+- `LIST ROUTES`
+- `ROUTE WORK`
+- `TRAFFIC ROUTE WORK`
+- `DELETE ROUTE WORK`
 
 ## Repository layout
 
@@ -125,6 +137,7 @@ TrafficSMS uses PostgreSQL 17, PostGIS, and Alembic. Billing adds these producti
 - `usage_tracking`
 - `billing_events`
 - `auth_events`
+- `saved_routes`
 
 The Monday, August 17, 2026 hardening migration also:
 
@@ -154,7 +167,7 @@ The dashboard is now the primary account center and shows:
 - Active device sessions with single-session revocation
 - Profile, password, email, and phone management
 - Saved home, work, gym, and school locations
-- Derived saved-route combinations from configured locations
+- Custom saved-route creation, editing, and deletion alongside derived profile routes
 
 The pricing page now uses the authenticated billing APIs for checkout and plan switching.
 

@@ -6,6 +6,7 @@ All notable changes to TrafficSMS are documented here.
 
 ### Added
 
+- Added Revision 5.6 custom saved-route automation, including private route persistence, authenticated account APIs, dashboard management, SMS save/list/delete/lookup commands, and migration `9a7c3e6b2d14`.
 - Added authentication hardening for resend verification, refresh replay detection, rate limiting, timed lockouts, session listing, single-session revocation, and auth audit events.
 - Added profile, password, email, and phone management APIs plus dashboard UI for those account-center actions.
 - Added subscription reconciliation, grace-period support, trial-ready billing fields, atomic SMS usage tracking, and richer billing summary payloads.

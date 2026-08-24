@@ -13,19 +13,24 @@ import {
   changePassword,
   changePhone,
   changePlan,
+  createSavedRoute,
   createCustomerPortal,
   getBillingHistory,
   getBillingSubscription,
   getCurrentUser,
+  listSavedRoutes,
   listSessions,
   reconcileSubscription,
   resendVerification,
   revokeSession,
+  deleteSavedRoute,
+  updateSavedRoute,
   updateCurrentUserProfile,
   type AuthenticatedUser,
   type BillingEvent,
   type BillingPlan,
   type SessionInfo,
+  type SavedRoute,
   type SubscriptionSummary,
 } from '../../lib/api';
 import styles from './dashboard.module.css';
@@ -37,6 +42,12 @@ type ProfileFormState = {
   school_location: string;
   default_state: string;
   default_country: string;
+};
+
+type SavedRouteFormState = {
+  name: string;
+  origin_text: string;
+  destination_text: string;
 };
 
 function formatDateTime(value: string | null): string {
@@ -128,6 +139,7 @@ export default function DashboardPage() {
   const [subscription, setSubscription] = useState<SubscriptionSummary | null>(null);
   const [history, setHistory] = useState<BillingEvent[]>([]);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
@@ -144,6 +156,9 @@ export default function DashboardPage() {
   const [billingAction, setBillingAction] = useState<'portal' | 'plan' | 'cancel' | 'reconcile' | null>(null);
   const [securityAction, setSecurityAction] = useState<'password' | 'email' | 'phone' | 'logout-all' | null>(null);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [routeMessage, setRouteMessage] = useState<string | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeBusy, setRouteBusy] = useState<number | 'create' | null>(null);
 
   const [profileForm, setProfileForm] = useState<ProfileFormState>({
     home_location: '',
@@ -165,6 +180,12 @@ export default function DashboardPage() {
     phone_number: accountUser?.phone_e164 ?? '',
     current_password: '',
   });
+  const [newRoute, setNewRoute] = useState<SavedRouteFormState>({
+    name: '',
+    origin_text: '',
+    destination_text: '',
+  });
+  const [routeEdits, setRouteEdits] = useState<Record<number, SavedRouteFormState>>({});
 
   useEffect(() => {
     setAccountUser(user);
@@ -225,17 +246,24 @@ export default function DashboardPage() {
         setBillingMessage(reconciliation.message);
       }
 
-      const [nextUser, resolvedSubscription, nextHistory, nextSessions] = await Promise.all([
+      const [nextUser, resolvedSubscription, nextHistory, nextSessions, nextRoutes] = await Promise.all([
         getCurrentUser(accessToken),
         nextSubscription ? Promise.resolve(nextSubscription) : getBillingSubscription(accessToken),
         getBillingHistory(accessToken),
         listSessions(accessToken),
+        listSavedRoutes(accessToken),
       ]);
 
       setAccountUser(nextUser);
       setSubscription(resolvedSubscription);
       setHistory(nextHistory);
       setSessions(nextSessions);
+      setSavedRoutes(nextRoutes);
+      setRouteEdits(Object.fromEntries(nextRoutes.map((route) => [route.id, {
+        name: route.name,
+        origin_text: route.origin_text,
+        destination_text: route.destination_text,
+      }])));
 
       if (options?.checkoutState === 'success') {
         setPageMessage('Subscription activated. Welcome to TrafficSMS. Your account is now active.');
@@ -341,6 +369,67 @@ export default function DashboardPage() {
       setProfileError(mapApiMessage(error, 'Unable to save your profile right now.'));
     } finally {
       setProfileBusy(false);
+    }
+  }
+
+  async function handleCreateRoute(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!session?.accessToken) {
+      return;
+    }
+    setRouteBusy('create');
+    setRouteMessage(null);
+    setRouteError(null);
+    try {
+      const route = await createSavedRoute(session.accessToken, newRoute);
+      setSavedRoutes((current) => [...current, route]);
+      setRouteEdits((current) => ({ ...current, [route.id]: {
+        name: route.name,
+        origin_text: route.origin_text,
+        destination_text: route.destination_text,
+      }}));
+      setNewRoute({ name: '', origin_text: '', destination_text: '' });
+      setRouteMessage(`Saved route ${route.name} created.`);
+    } catch (error) {
+      setRouteError(mapApiMessage(error, 'Unable to create this saved route.'));
+    } finally {
+      setRouteBusy(null);
+    }
+  }
+
+  async function handleUpdateRoute(routeId: number) {
+    if (!session?.accessToken || !routeEdits[routeId]) {
+      return;
+    }
+    setRouteBusy(routeId);
+    setRouteMessage(null);
+    setRouteError(null);
+    try {
+      const updated = await updateSavedRoute(session.accessToken, routeId, routeEdits[routeId]);
+      setSavedRoutes((current) => current.map((route) => route.id === routeId ? updated : route));
+      setRouteMessage(`Saved route ${updated.name} updated.`);
+    } catch (error) {
+      setRouteError(mapApiMessage(error, 'Unable to update this saved route.'));
+    } finally {
+      setRouteBusy(null);
+    }
+  }
+
+  async function handleDeleteRoute(routeId: number) {
+    if (!session?.accessToken) {
+      return;
+    }
+    setRouteBusy(routeId);
+    setRouteMessage(null);
+    setRouteError(null);
+    try {
+      await deleteSavedRoute(session.accessToken, routeId);
+      setSavedRoutes((current) => current.filter((route) => route.id !== routeId));
+      setRouteMessage('Saved route deleted.');
+    } catch (error) {
+      setRouteError(mapApiMessage(error, 'Unable to delete this saved route.'));
+    } finally {
+      setRouteBusy(null);
     }
   }
 
@@ -786,7 +875,7 @@ export default function DashboardPage() {
           </div>
 
           <div className={styles.routesCard}>
-            <span className={styles.detailLabel}>Saved routes ready now</span>
+            <span className={styles.detailLabel}>Profile-derived routes</span>
             {derivedRoutes.length === 0 ? (
               <p className="muted">Add at least two saved places to unlock commute-ready route combinations in the dashboard.</p>
             ) : (
@@ -796,6 +885,71 @@ export default function DashboardPage() {
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className={styles.routesCard}>
+            <span className={styles.detailLabel}>Custom saved routes</span>
+            <p className="muted">Create a private shortcut for the dashboard or text ROUTE NAME for traffic.</p>
+            {routeMessage ? <div className="statusMessage">{routeMessage}</div> : null}
+            {routeError ? <div className="errorMessage">{routeError}</div> : null}
+
+            {savedRoutes.length === 0 ? (
+              <p className="muted">No custom saved routes yet.</p>
+            ) : (
+              <div className={styles.customRouteList}>
+                {savedRoutes.map((route) => {
+                  const edit = routeEdits[route.id];
+                  return (
+                    <div className={styles.customRouteItem} key={route.id}>
+                      <div className={styles.formGrid}>
+                        <label className={styles.field}>
+                          <span>Route name</span>
+                          <input className="input" value={edit?.name ?? route.name} onChange={(event) => setRouteEdits((current) => ({ ...current, [route.id]: { ...(current[route.id] ?? { name: route.name, origin_text: route.origin_text, destination_text: route.destination_text }), name: event.target.value } }))} />
+                        </label>
+                        <label className={styles.field}>
+                          <span>Origin</span>
+                          <input className="input" value={edit?.origin_text ?? route.origin_text} onChange={(event) => setRouteEdits((current) => ({ ...current, [route.id]: { ...(current[route.id] ?? { name: route.name, origin_text: route.origin_text, destination_text: route.destination_text }), origin_text: event.target.value } }))} />
+                        </label>
+                        <label className={styles.field}>
+                          <span>Destination</span>
+                          <input className="input" value={edit?.destination_text ?? route.destination_text} onChange={(event) => setRouteEdits((current) => ({ ...current, [route.id]: { ...(current[route.id] ?? { name: route.name, origin_text: route.origin_text, destination_text: route.destination_text }), destination_text: event.target.value } }))} />
+                        </label>
+                      </div>
+                      <div className="actionRow">
+                        <button className="ghostButton" type="button" onClick={() => void handleUpdateRoute(route.id)} disabled={routeBusy !== null}>
+                          {routeBusy === route.id ? 'Saving...' : 'Save route'}
+                        </button>
+                        <button className="ghostButton" type="button" onClick={() => void handleDeleteRoute(route.id)} disabled={routeBusy !== null}>
+                          Delete route
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <form className={styles.form} onSubmit={handleCreateRoute}>
+              <div className={styles.formGrid}>
+                <label className={styles.field}>
+                  <span>Route name</span>
+                  <input className="input" value={newRoute.name} onChange={(event) => setNewRoute((current) => ({ ...current, name: event.target.value }))} placeholder="Client office" required />
+                </label>
+                <label className={styles.field}>
+                  <span>Origin</span>
+                  <input className="input" value={newRoute.origin_text} onChange={(event) => setNewRoute((current) => ({ ...current, origin_text: event.target.value }))} placeholder="Corona, CA" required />
+                </label>
+                <label className={styles.field}>
+                  <span>Destination</span>
+                  <input className="input" value={newRoute.destination_text} onChange={(event) => setNewRoute((current) => ({ ...current, destination_text: event.target.value }))} placeholder="Irvine, CA" required />
+                </label>
+              </div>
+              <div className="actionRow">
+                <button className="cta" type="submit" disabled={routeBusy !== null}>
+                  {routeBusy === 'create' ? 'Creating...' : 'Add saved route'}
+                </button>
+              </div>
+            </form>
           </div>
         </article>
 
