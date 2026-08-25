@@ -101,6 +101,7 @@ Status: Planned
 - [ ] Monitoring and alerting
 - [ ] Backups
 - [ ] CI/CD
+- [x] Production deployment verification scripts, public endpoint smoke tests, and backend health endpoint readiness
 
 ## Immediate next steps
 

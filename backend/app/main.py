@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
-from app.api import billing, saved_routes, stripe_webhook, twilio_webhook, users
+from app.api import billing, health, saved_routes, stripe_webhook, twilio_webhook, users
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.database import SessionLocal
@@ -188,6 +188,7 @@ app.include_router(twilio_webhook.router)
 app.include_router(stripe_webhook.router)
 app.include_router(billing.router)
 app.include_router(billing.admin_router)
+app.include_router(health.router)
 
 
 def get_test_user(db):
@@ -196,15 +197,6 @@ def get_test_user(db):
             User.email == "test@test.trafficsms.com"
         )
     )
-
-
-@app.get("/health")
-def health():
-    return {
-        "status": "ok",
-        "environment": settings.app_env,
-        "service": "TrafficSMS API",
-    }
 
 
 if not is_production:

@@ -4,6 +4,10 @@ TrafficSMS is a production-focused SaaS platform for traffic intelligence delive
 
 Current release: `v0.5.0-alpha`
 
+## Deployment Smoke Test
+
+After deployment, run `powershell -ExecutionPolicy Bypass -File .\scripts\smoke_test_production.ps1 -FrontendUrl "https://your-site" -BackendUrl "https://your-api"` to check public endpoint availability.
+
 ## What is live in this repository
 
 - Authenticated account registration and login
