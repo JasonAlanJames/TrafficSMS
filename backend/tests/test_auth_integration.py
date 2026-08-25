@@ -138,7 +138,7 @@ class FailingSMTP(FakeSMTP):
 
 @pytest.fixture()
 def smtp_outbox(monkeypatch):
-    from app.email import service as email_service_module
+    from app.services import email as email_service_module
 
     FakeSMTP.reset()
     email_service_module.get_email_service.cache_clear()
@@ -151,10 +151,12 @@ def smtp_outbox(monkeypatch):
         smtp_username="mailer",
         smtp_password="secret",
         email_enabled=True,
-        email_from_address="no-reply@trafficsms.test",
-        email_from_name="TrafficSMS Test",
-        smtp_use_starttls=True,
-        smtp_use_tls=False,
+        mail_from="no-reply@trafficsms.test",
+        mail_from_name="TrafficSMS Test",
+        email_reply_to="support@trafficsms.test",
+        smtp_tls=True,
+        smtp_ssl=False,
+        smtp_timeout_seconds=5,
         frontend_url="https://trafficsms.test",
     ):
         yield FakeSMTP
@@ -164,7 +166,7 @@ def smtp_outbox(monkeypatch):
 
 @pytest.fixture()
 def failing_smtp(monkeypatch):
-    from app.email import service as email_service_module
+    from app.services import email as email_service_module
 
     FailingSMTP.reset()
     email_service_module.get_email_service.cache_clear()
@@ -177,10 +179,12 @@ def failing_smtp(monkeypatch):
         smtp_username="",
         smtp_password="",
         email_enabled=True,
-        email_from_address="no-reply@trafficsms.test",
-        email_from_name="TrafficSMS Test",
-        smtp_use_starttls=False,
-        smtp_use_tls=False,
+        mail_from="no-reply@trafficsms.test",
+        mail_from_name="TrafficSMS Test",
+        email_reply_to="support@trafficsms.test",
+        smtp_tls=False,
+        smtp_ssl=False,
+        smtp_timeout_seconds=5,
         frontend_url="https://trafficsms.test",
     ):
         yield FailingSMTP
@@ -406,6 +410,10 @@ def test_registration_triggers_smtp_send(client, db_session: Session, smtp_outbo
     assert message["Subject"] == "Verify your TrafficSMS account"
     assert user.verification_token in message_text_body(message)
     assert "https://trafficsms.test/verify-email?token=" in message_text_body(message)
+    assert "/api/auth/verify-email" not in message_text_body(message)
+    assert "Verify account" in message_html_body(message)
+    assert message["From"] == "TrafficSMS Test <no-reply@trafficsms.test>"
+    assert message["Reply-To"] == "support@trafficsms.test"
     assert "Verify your TrafficSMS account" in message_html_body(message)
 
 
@@ -424,6 +432,17 @@ def test_password_reset_triggers_smtp_send(client, db_session: Session, smtp_out
     assert message["Subject"] == "Reset your TrafficSMS password"
     assert user.password_reset_token in message_text_body(message)
     assert "https://trafficsms.test/reset-password?token=" in message_text_body(message)
+    assert "/api/auth/reset-password" not in message_text_body(message)
+    assert "Reset password" in message_html_body(message)
+    for forbidden_copy in (
+        "API client",
+        "Reset token",
+        "Reset endpoint",
+        "Use the token below",
+        "existing password reset flow",
+    ):
+        assert forbidden_copy not in message_text_body(message)
+        assert forbidden_copy not in message_html_body(message)
     assert "Reset your TrafficSMS password" in message_html_body(message)
 
 

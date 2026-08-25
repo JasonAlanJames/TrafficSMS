@@ -16,23 +16,14 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 
-def load_backend_env() -> None:
-    env_path = BACKEND_ROOT / ".env"
-
-    if not env_path.exists():
-        return
-
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-
-        key, value = stripped.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip())
-
-
-load_backend_env()
+# Tests must never load real application environment files.
+# Establish an isolated, non-production configuration before importing the app.
+os.environ["APP_ENV"] = "test"
+os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
+os.environ["SECRET_KEY"] = "TrafficSMS-Test-Only-Secret-Key-2026-Validation-0001"
+os.environ["STRIPE_SECRET_KEY"] = "sk_test_trafficsms_validation"
+os.environ["EMAIL_ENABLED"] = "false"
+os.environ["BEDROCK_ENABLED"] = "false"
 
 import app.models.registry  # noqa: F401
 from app.core.database import Base, get_db

@@ -208,7 +208,7 @@ export type ValidationIssue = {
 };
 
 type ApiErrorPayload = {
-  detail?: string;
+  detail?: string | ValidationIssue[];
   message?: string;
   error?: string;
   status_code?: number;
@@ -238,16 +238,24 @@ async function readErrorPayload(response: Response): Promise<ApiErrorPayload | n
   return text ? { detail: text } : null;
 }
 
+function getErrorMessage(payload: ApiErrorPayload | null): string {
+  if (typeof payload?.detail === 'string') {
+    return payload.detail;
+  }
+
+  if (Array.isArray(payload?.detail)) {
+    return payload.detail.map((issue) => issue.message).join(' ');
+  }
+
+  return payload?.message ?? payload?.error ?? 'Something went wrong. Please try again.';
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
 
   if (!response.ok) {
     const payload = await readErrorPayload(response);
-    const message =
-      payload?.detail ??
-      payload?.message ??
-      payload?.error ??
-      'Something went wrong. Please try again.';
+    const message = getErrorMessage(payload);
 
     throw new ApiError(message, response.status, payload);
   }
@@ -283,6 +291,18 @@ export async function register(payload: RegisterPayload): Promise<void> {
     method: 'POST',
     headers: buildJsonHeaders(),
     body: JSON.stringify(payload),
+  });
+}
+
+export async function verifyEmail(token: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  return request<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    headers: buildJsonHeaders(),
+    body: JSON.stringify({ token, new_password: newPassword }),
   });
 }
 

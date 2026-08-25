@@ -152,7 +152,30 @@ The example env file also includes product ID slots for compatibility, but prici
 
 ## Transactional Email
 
-Account lifecycle email is disabled by default. Set `EMAIL_ENABLED=true` with `EMAIL_PROVIDER=smtp`, sender fields, SMTP host/port/credentials, TLS choice, paths, and `SUPPORT_URL` to enable verification, reset, resend, and email-change delivery.
+Account lifecycle email is disabled by default in development. It uses standard SMTP configuration, so Mailpit works locally without any Mailpit-specific code.
+
+Production uses Amazon SES SMTP with these non-secret values:
+
+```env
+FRONTEND_URL=https://trafficsms.com
+SUPPORT_URL=https://trafficsms.com/support
+MAIL_FROM=noreply@trafficsms.com
+MAIL_FROM_NAME=TrafficSMS
+EMAIL_REPLY_TO=support@trafficsms.com
+SMTP_HOST=email-smtp.us-west-2.amazonaws.com
+SMTP_PORT=587
+SMTP_TLS=true
+SMTP_SSL=false
+SMTP_TIMEOUT_SECONDS=5
+```
+
+`MAIL_FROM` is the production sender address, `MAIL_FROM_NAME` is the display name, and `EMAIL_REPLY_TO` is reply-to only. Do not use `EMAIL_FROM_ADDRESS`, `EMAIL_FROM`, or `EMAIL_FROM_NAME` as production sender configuration. SES port `587` uses `SMTP_TLS=true` and `SMTP_SSL=false`.
+
+SMTP credentials and `SECRET_KEY` are secrets: never print, log, document, commit, or expose them. Rotate SES credentials immediately if they are exposed. A production `SECRET_KEY` must have at least 32 characters; generate one with `openssl rand -hex 32`.
+
+Verification emails direct customers to `https://trafficsms.com/verify-email?token=<token>` and password-reset emails direct customers to `https://trafficsms.com/reset-password?token=<token>`. The frontend pages call the existing backend endpoints internally, keeping customers out of raw API and JSON views.
+
+The production web healthcheck intentionally uses `http://127.0.0.1:3000/` rather than `localhost` to avoid an IPv6 loopback resolution failure.
 
 ## Database and migrations
 

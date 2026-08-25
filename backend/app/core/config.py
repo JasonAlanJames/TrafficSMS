@@ -145,18 +145,51 @@ class Settings(BaseSettings):
         ),
     )
 
-    email_enabled: bool = Field(default=False, validation_alias=AliasChoices("EMAIL_ENABLED", "email_enabled"))
-    email_provider: str = Field(default="smtp", validation_alias=AliasChoices("EMAIL_PROVIDER", "email_provider"))
-    email_from_address: str = Field(default="noreply@trafficsms.com", validation_alias=AliasChoices("EMAIL_FROM_ADDRESS", "email_from_address"))
-    email_from_name: str = Field(default="TrafficSMS", validation_alias=AliasChoices("EMAIL_FROM_NAME", "email_from_name"))
-    email_reply_to: str = Field(default="support@trafficsms.com", validation_alias=AliasChoices("EMAIL_REPLY_TO", "email_reply_to"))
-    smtp_use_starttls: bool = Field(default=True, validation_alias=AliasChoices("SMTP_USE_TLS", "smtp_use_starttls"))
-    smtp_use_tls: bool = Field(default=False, validation_alias=AliasChoices("SMTP_SSL", "smtp_use_tls"))
-    smtp_timeout_seconds: int = Field(default=5, ge=1, validation_alias=AliasChoices("SMTP_TIMEOUT_SECONDS", "smtp_timeout_seconds"))
-    email_verification_path: str = Field(default="/verify-email", validation_alias=AliasChoices("EMAIL_VERIFICATION_PATH", "email_verification_path"))
-    password_reset_path: str = Field(default="/reset-password", validation_alias=AliasChoices("PASSWORD_RESET_PATH", "password_reset_path"))
-    email_change_verification_path: str = Field(default="/verify-email-change", validation_alias=AliasChoices("EMAIL_CHANGE_VERIFICATION_PATH", "email_change_verification_path"))
-    support_url: str = Field(default="https://trafficsms.com/support", validation_alias=AliasChoices("SUPPORT_URL", "support_url"))
+    email_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("EMAIL_ENABLED", "email_enabled"),
+    )
+    email_provider: str = Field(
+        default="smtp",
+        validation_alias=AliasChoices("EMAIL_PROVIDER", "email_provider"),
+    )
+    email_reply_to: str = Field(
+        default="support@trafficsms.com",
+        validation_alias=AliasChoices("EMAIL_REPLY_TO", "email_reply_to"),
+    )
+    smtp_timeout_seconds: int = Field(
+        default=5,
+        ge=1,
+        validation_alias=AliasChoices(
+            "SMTP_TIMEOUT_SECONDS",
+            "smtp_timeout_seconds",
+        ),
+    )
+    email_verification_path: str = Field(
+        default="/verify-email",
+        validation_alias=AliasChoices(
+            "EMAIL_VERIFICATION_PATH",
+            "email_verification_path",
+        ),
+    )
+    password_reset_path: str = Field(
+        default="/reset-password",
+        validation_alias=AliasChoices(
+            "PASSWORD_RESET_PATH",
+            "password_reset_path",
+        ),
+    )
+    email_change_verification_path: str = Field(
+        default="/verify-email-change",
+        validation_alias=AliasChoices(
+            "EMAIL_CHANGE_VERIFICATION_PATH",
+            "email_change_verification_path",
+        ),
+    )
+    support_url: str = Field(
+        default="https://trafficsms.com/support",
+        validation_alias=AliasChoices("SUPPORT_URL", "support_url"),
+    )
 
     smtp_host: str = Field(
         default="",
@@ -431,6 +464,7 @@ class Settings(BaseSettings):
         env_file=".env",
         case_sensitive=False,
         extra="ignore",
+        hide_input_in_errors=True,
     )
 
     @model_validator(mode="after")
@@ -463,6 +497,15 @@ class Settings(BaseSettings):
                 "secret key when APP_ENV is development, dev, test, testing, "
                 "or local. Use a Stripe test-mode key (sk_test_...) or leave "
                 "STRIPE_SECRET_KEY empty."
+            )
+
+        if (
+            environment in {"production", "prod"}
+            and len(self.secret_key.encode("utf-8")) < 32
+        ):
+            raise ValueError(
+                "SECRET_KEY must be at least 32 characters in production. "
+                "Generate one with: openssl rand -hex 32"
             )
 
         return self

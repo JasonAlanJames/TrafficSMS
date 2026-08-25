@@ -44,7 +44,7 @@ from app.billing.service import BillingService
 from app.billing.stripe_gateway import StripeGateway
 from app.core.config import settings
 from app.models.entities import User
-from app.email import EmailService, get_email_service
+from app.services.email import EmailService, get_email_service
 
 logger = logging.getLogger(__name__)
 
@@ -61,18 +61,6 @@ class AuthService:
     @staticmethod
     def _now() -> datetime:
         return datetime.now(UTC)
-
-    @staticmethod
-    def _token_preview(token: str | None) -> str:
-        if not token:
-            return "<empty>"
-        if len(token) <= 16:
-            return token
-        return f"{token[:8]}...{token[-8:]}"
-
-    @staticmethod
-    def _is_development_logging_enabled() -> bool:
-        return settings.app_env.strip().lower() == "development"
 
     @staticmethod
     def _as_utc(value: datetime | None) -> datetime | None:
@@ -230,12 +218,6 @@ class AuthService:
         user.password_hash = hash_password(request.password)
         user.email_verified = False
         user.verification_token = generate_secure_token()
-        if self._is_development_logging_enabled():
-            logger.warning(
-                "Verification token generated preview=%s length=%s",
-                self._token_preview(user.verification_token),
-                len(user.verification_token),
-            )
         user.verification_token_expires_at = now + timedelta(
             hours=settings.email_verification_token_expire_hours
         )
@@ -262,7 +244,7 @@ class AuthService:
         else:
             self.repository.save(user)
 
-        email_result = self.email_service.send_verification_email(
+        email_verification_sent = self.email_service.send_verification_email(
             recipient=user.email,
             token=user.verification_token,
         )
@@ -278,7 +260,7 @@ class AuthService:
 
         return RegisterResponse(
             message="Account created. Verification email queued.",
-            email_verification_sent=email_result.sent,
+            email_verification_sent=email_verification_sent,
         )
 
     def login(
@@ -668,19 +650,7 @@ class AuthService:
         token: str,
     ) -> MessageResponse:
         now = self._now()
-        if self._is_development_logging_enabled():
-            logger.warning(
-                "Verification token received preview=%s length=%s",
-                self._token_preview(token),
-                len(token),
-            )
         user = self.repository.get_by_verification_token(token)
-
-        if self._is_development_logging_enabled():
-            logger.warning(
-                "Verification token lookup result found=%s method=database_lookup_raw_token",
-                user is not None,
-            )
 
         if user is None:
             self._log_event(
@@ -695,13 +665,6 @@ class AuthService:
         expires_at = self._as_utc(user.verification_token_expires_at)
 
         if expires_at is not None and expires_at <= now:
-            if self._is_development_logging_enabled():
-                logger.warning(
-                    "Verification token validation failed reason=expired preview=%s expires_at=%s now=%s",
-                    self._token_preview(token),
-                    expires_at.isoformat(),
-                    now.isoformat(),
-                )
             self._log_event(
                 event_type="verify_email",
                 outcome="failure",

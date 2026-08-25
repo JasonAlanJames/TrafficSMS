@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr
 from functools import lru_cache
+from html import escape
 from urllib.parse import quote
 
 from app.core.config import Settings, get_settings
@@ -30,6 +31,14 @@ class EmailService:
         raise NotImplementedError
 
     def send_password_reset_email(self, *, recipient: str, token: str) -> bool:
+        raise NotImplementedError
+
+    def send_email_change_verification_email(
+        self,
+        *,
+        recipient: str,
+        token: str,
+    ) -> bool:
         raise NotImplementedError
 
 
@@ -63,12 +72,33 @@ class SmtpEmailService(EmailService):
             )
         )
 
+    def send_email_change_verification_email(
+        self,
+        *,
+        recipient: str,
+        token: str,
+    ) -> bool:
+        return self._deliver(
+            self._build_email_change_verification_email(
+                recipient=recipient,
+                token=token,
+            )
+        )
+
     def _deliver(self, content: EmailContent) -> bool:
         logger.info(
             "Email queued recipient=%s subject=%s",
             content.recipient,
             content.subject,
         )
+
+        if not self.settings.email_enabled:
+            logger.info(
+                "Email skipped recipient=%s subject=%s reason=disabled",
+                content.recipient,
+                content.subject,
+            )
+            return False
 
         if not self._is_configured:
             logger.error(
@@ -122,12 +152,14 @@ class SmtpEmailService(EmailService):
         )
         message["To"] = content.recipient
         message["Subject"] = content.subject
+        if self.settings.email_reply_to.strip():
+            message["Reply-To"] = self.settings.email_reply_to.strip()
         message.set_content(content.text_body)
         message.add_alternative(content.html_body, subtype="html")
         return message
 
     def _connect(self) -> smtplib.SMTP:
-        timeout_seconds = 10
+        timeout_seconds = self.settings.smtp_timeout_seconds
 
         if self.settings.smtp_ssl:
             smtp = smtplib.SMTP_SSL(
@@ -163,16 +195,6 @@ class SmtpEmailService(EmailService):
     ) -> EmailContent:
         subject = "Verify your TrafficSMS account"
         verification_url = self._verification_url(token)
-        url_token = self._extract_token_from_url(verification_url)
-        if self._is_development_logging_enabled():
-            logger.warning(
-                "Verification email URL built recipient=%s token_preview=%s url_token_preview=%s identical=%s url=%s",
-                recipient,
-                self._token_preview(token),
-                self._token_preview(url_token),
-                url_token == token,
-                verification_url,
-            )
         requested_copy = (
             "A new verification link was requested for your account."
             if requested_again
@@ -183,10 +205,11 @@ class SmtpEmailService(EmailService):
         text_body = (
             "Verify your TrafficSMS account\n\n"
             f"{requested_copy}\n\n"
-            "Open this verification link:\n"
+            "Verify your account:\n"
             f"{verification_url}\n\n"
             f"This link expires in {expires_in_hours} hours.\n"
-            "If you did not create this account, you can ignore this email."
+            "If you did not request this, you can ignore this email.\n\n"
+            f"Support: {self.settings.support_url}"
         )
         html_body = (
             "<html><body style=\"margin:0;padding:0;background:#f3f6fb;font-family:Arial,sans-serif;color:#14213d;\">"
@@ -204,7 +227,8 @@ class SmtpEmailService(EmailService):
             f"<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">This link expires in {expires_in_hours} hours.</p>"
             f"<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">If the button does not work, copy and paste this URL into your browser:</p>"
             f"<p style=\"margin:0 0 24px;font-size:14px;line-height:1.6;word-break:break-word;\"><a href=\"{verification_url}\" style=\"color:#0f766e;\">{verification_url}</a></p>"
-            "<p style=\"margin:0;font-size:14px;line-height:1.6;color:#475569;\">If you did not create this account, you can safely ignore this email.</p>"
+            "<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">If you did not request this, you can ignore this email.</p>"
+            f"<p style=\"margin:0;font-size:14px;line-height:1.6;color:#475569;\">Need help? <a href=\"{escape(self.settings.support_url, quote=True)}\" style=\"color:#0f766e;\">TrafficSMS Support</a></p>"
             "</div></div></body></html>"
         )
 
@@ -222,16 +246,17 @@ class SmtpEmailService(EmailService):
         token: str,
     ) -> EmailContent:
         subject = "Reset your TrafficSMS password"
-        reset_endpoint = self._password_reset_endpoint()
+        reset_url = self._password_reset_url(token)
         expires_in_hours = self.settings.password_reset_token_expire_hours
 
         text_body = (
             "Reset your TrafficSMS password\n\n"
             "A password reset was requested for your TrafficSMS account.\n\n"
-            f"Reset token: {token}\n"
-            f"Reset endpoint: {reset_endpoint}\n\n"
-            f"This token expires in {expires_in_hours} hour(s).\n"
-            "If you did not request a password reset, you can ignore this email."
+            "Reset your password:\n"
+            f"{reset_url}\n\n"
+            f"This link expires in {expires_in_hours} hour(s).\n"
+            "If you did not request this, you can ignore this email.\n\n"
+            f"Support: {self.settings.support_url}"
         )
         html_body = (
             "<html><body style=\"margin:0;padding:0;background:#f3f6fb;font-family:Arial,sans-serif;color:#14213d;\">"
@@ -240,11 +265,13 @@ class SmtpEmailService(EmailService):
             "<p style=\"margin:0 0 12px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;\">TrafficSMS</p>"
             "<h1 style=\"margin:0 0 16px;font-size:28px;line-height:1.2;\">Reset your TrafficSMS password</h1>"
             "<p style=\"margin:0 0 16px;font-size:16px;line-height:1.6;\">A password reset was requested for your TrafficSMS account.</p>"
-            "<p style=\"margin:0 0 16px;font-size:16px;line-height:1.6;\">Use the token below with your existing password reset flow or API client.</p>"
-            f"<div style=\"margin:0 0 20px;padding:16px;border-radius:14px;background:#e2e8f0;font-family:'Courier New',monospace;font-size:15px;word-break:break-all;\">{token}</div>"
-            f"<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">Reset endpoint: <span style=\"word-break:break-all;\">{reset_endpoint}</span></p>"
-            f"<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">This token expires in {expires_in_hours} hour(s).</p>"
-            "<p style=\"margin:0;font-size:14px;line-height:1.6;color:#475569;\">If you did not request a password reset, you can safely ignore this email.</p>"
+            "<p style=\"margin:0 0 24px;font-size:16px;line-height:1.6;\">Use the button below to choose a new password.</p>"
+            f"<p style=\"margin:0 0 24px;\"><a href=\"{reset_url}\" style=\"display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:700;\">Reset password</a></p>"
+            f"<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">This link expires in {expires_in_hours} hour(s).</p>"
+            "<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">If the button does not work, copy and paste this URL into your browser:</p>"
+            f"<p style=\"margin:0 0 24px;font-size:14px;line-height:1.6;word-break:break-word;\"><a href=\"{reset_url}\" style=\"color:#0f766e;\">{reset_url}</a></p>"
+            "<p style=\"margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;\">If you did not request this, you can ignore this email.</p>"
+            f"<p style=\"margin:0;font-size:14px;line-height:1.6;color:#475569;\">Need help? <a href=\"{escape(self.settings.support_url, quote=True)}\" style=\"color:#0f766e;\">TrafficSMS Support</a></p>"
             "</div></div></body></html>"
         )
 
@@ -255,33 +282,49 @@ class SmtpEmailService(EmailService):
             html_body=html_body,
         )
 
-    def _verification_url(self, token: str) -> str:
-        return (
-            f"{self.settings.public_base_url.rstrip('/')}/auth/verify-email"
-            f"?token={quote(token, safe='')}"
+    def _build_email_change_verification_email(
+        self,
+        *,
+        recipient: str,
+        token: str,
+    ) -> EmailContent:
+        confirmation_url = self._frontend_url(
+            self.settings.email_change_verification_path,
+            token,
+        )
+        return EmailContent(
+            recipient=recipient,
+            subject="Confirm your new TrafficSMS email",
+            text_body=(
+                "Confirm your new TrafficSMS email\n\n"
+                "Confirm this new email address for your TrafficSMS account:\n"
+                f"{confirmation_url}\n\n"
+                f"This link expires in {self.settings.email_verification_token_expire_hours} hours.\n"
+                "If you did not request this, you can ignore this email.\n\n"
+                f"Support: {self.settings.support_url}"
+            ),
+            html_body=(
+                "<html><body><h1>TrafficSMS</h1>"
+                "<h2>Confirm your new TrafficSMS email</h2>"
+                "<p>Confirm this new email address for your TrafficSMS account.</p>"
+                f"<p><a href=\"{escape(confirmation_url, quote=True)}\">Confirm email</a></p>"
+                "<p>If you did not request this, you can ignore this email.</p>"
+                f"<p><a href=\"{escape(self.settings.support_url, quote=True)}\">TrafficSMS Support</a></p>"
+                "</body></html>"
+            ),
         )
 
-    def _password_reset_endpoint(self) -> str:
-        return f"{self.settings.public_base_url.rstrip('/')}/auth/reset-password"
+    def _verification_url(self, token: str) -> str:
+        return self._frontend_url(self.settings.email_verification_path, token)
 
-    @staticmethod
-    def _token_preview(token: str | None) -> str:
-        if not token:
-            return "<empty>"
-        if len(token) <= 16:
-            return token
-        return f"{token[:8]}...{token[-8:]}"
+    def _password_reset_url(self, token: str) -> str:
+        return self._frontend_url(self.settings.password_reset_path, token)
 
-    def _is_development_logging_enabled(self) -> bool:
-        return self.settings.app_env.strip().lower() == "development"
-
-    @staticmethod
-    def _extract_token_from_url(url: str) -> str:
-        token_key = "token="
-        index = url.find(token_key)
-        if index < 0:
-            return ""
-        return url[index + len(token_key):]
+    def _frontend_url(self, path: str, token: str) -> str:
+        return (
+            f"{self.settings.frontend_url.rstrip('/')}/"
+            f"{path.lstrip('/')}?token={quote(token, safe='')}"
+        )
 
 
 @lru_cache
