@@ -203,6 +203,10 @@
   gap: 1rem;
 }
 
+.profileActionRow {
+  align-items: flex-start;
+}
+
 .field {
   display: grid;
   gap: 0.35rem;

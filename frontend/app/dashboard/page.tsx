@@ -790,7 +790,7 @@ export default function DashboardPage() {
               onClick={() => void handleManageSubscription()}
               disabled={billingAction !== null || !subscription?.stripe_customer_id}
             >
-              {billingAction === 'portal' ? 'Opening...' : 'Open Stripe portal'}
+              {billingAction === 'portal' ? 'Opening...' : 'Manage billing'}
             </button>
             <button className="ghostButton" type="button" onClick={() => void handlePlanChange()} disabled={billingAction !== null}>
               {billingAction === 'plan'
@@ -1024,7 +1024,7 @@ export default function DashboardPage() {
               </label>
             </div>
 
-            <div className="actionRow">
+            <div className={`actionRow ${styles.profileActionRow}`}>
               <button className="cta" type="submit" disabled={profileBusy}>
                 {profileBusy ? 'Saving...' : 'Save profile'}
               </button>
